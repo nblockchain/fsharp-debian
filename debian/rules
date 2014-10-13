@@ -16,6 +16,9 @@
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
 
+POWERPACK = https://github.com/fsprojects/powerpack/archive/c69b3932b5dc5b41889f074c9cba5ed44d353f29.tar.gz
+POWERPACK_FILE = $(shell basename $(POWERPACK))
+
 MAKEFILE = $(firstword $(MAKEFILE_LIST))
 DEBIAN_DIR = $(dir $(MAKEFILE))
 SOURCE_DIR = $(DEBIAN_DIR)/..
@@ -51,6 +54,13 @@ get-orig-source:
 		exit 1; \
 	fi
 	tar -xzf $(DEB_SOURCE_NAME)_$(VERSION).orig.tar.gz
+	wget $(POWERPACK)
+	tar -xzf $(POWERPACK_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION) --strip=3 --wildcards \*/workyard/FsSrGen/\*
+	tar -xzf $(POWERPACK_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION) --strip=2 --wildcards \*/src/FsLex
+	tar -xzf $(POWERPACK_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION) --strip=2 --wildcards \*/src/FsYacc
+	tar -xzf $(POWERPACK_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION) --strip=2 --wildcards \*/src/FSharp.PowerPack
+	tar -xzf $(POWERPACK_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION) --strip=2 --wildcards \*/src/FSharp.PowerPack.Build.Tasks
+	rm $(POWERPACK_FILE)
 	rm $(DEB_SOURCE_NAME)_$(VERSION).orig.tar.gz
 	find $(DEB_SOURCE_NAME)-$(VERSION) -name "*.exe" | grep -v "bootstrap"
 	find $(DEB_SOURCE_NAME)-$(VERSION) -name "*.exe" | grep -v "bootstrap" | xargs rm -f
