@@ -16,6 +16,15 @@
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
 
+MAKEFILE = $(firstword $(MAKEFILE_LIST))
+DEBIAN_DIR = $(dir $(MAKEFILE))
+SOURCE_DIR = $(DEBIAN_DIR)/..
+
+DEB_VERSION = $(shell dpkg-parsechangelog -l$(DEBIAN_DIR)/changelog | grep ^Version | cut -d" " -f2)
+DEB_SOURCE_NAME = $(shell dpkg-parsechangelog -l$(DEBIAN_DIR)/changelog | grep ^Source | cut -d" " -f2)
+VERSION = $(shell echo $(DEB_VERSION) | cut -d"-" -f1 | sed 's/+dfsg.*//')
+
+
 override_dh_fixperms:
 	dh_fixperms
 	# Fix permissions of non-executable cruft
@@ -26,6 +35,32 @@ override_dh_fixperms:
 
 override_dh_clideps:
 	dh_clideps --exclude-moduleref=mscoree.dll
+
+get-orig-source:
+	uscan \
+		--package $(DEB_SOURCE_NAME) \
+		--watchfile $(DEBIAN_DIR)/watch \
+		--upstream-version $(VERSION) \
+		--download-version $(VERSION) \
+		--destdir . \
+		--force-download \
+		--rename \
+		--repack
+	if [ -d $(DEB_SOURCE_NAME)-$(VERSION) ]; then \
+		echo "$(DEB_SOURCE_NAME)-$(VERSION) is in the way, bailing out!"; \
+		exit 1; \
+	fi
+	tar -xzf $(DEB_SOURCE_NAME)_$(VERSION).orig.tar.gz
+	rm $(DEB_SOURCE_NAME)_$(VERSION).orig.tar.gz
+	find $(DEB_SOURCE_NAME)-$(VERSION) -name "*.exe" | grep -v "bootstrap"
+	find $(DEB_SOURCE_NAME)-$(VERSION) -name "*.exe" | grep -v "bootstrap" | xargs rm -f
+	find $(DEB_SOURCE_NAME)-$(VERSION) -name "*.dll" | grep -v "bootstrap"
+	find $(DEB_SOURCE_NAME)-$(VERSION) -name "*.dll" | grep -v "bootstrap" | xargs rm -f
+	find $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/signed
+	rm -rf $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/signed
+	tar --mtime=@1255820400 -cf ./$(DEB_SOURCE_NAME)_$(VERSION)+dfsg2.orig.tar $(DEB_SOURCE_NAME)-$(VERSION)
+	gzip -9fn ./$(DEB_SOURCE_NAME)_$(VERSION)+dfsg2.orig.tar
+	rm -r $(DEB_SOURCE_NAME)-$(VERSION)
 
 %:
 	dh $@ --with=cli,autoreconf
