@@ -68,6 +68,7 @@ get-orig-source:
 	find $(DEB_SOURCE_NAME)-$(VERSION) -name "*.dll" | grep -v "bootstrap" | xargs rm -f
 	find $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/signed
 	rm -rf $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/signed
+	find $(DEB_SOURCE_NAME)-$(VERSION) -type f -name \*.fsproj -print0 | xargs -0 fromdos
 	tar --mtime=@1255820400 -cf ./$(DEB_SOURCE_NAME)_$(VERSION)+dfsg2.orig.tar $(DEB_SOURCE_NAME)-$(VERSION)
 	gzip -9fn ./$(DEB_SOURCE_NAME)_$(VERSION)+dfsg2.orig.tar
 	rm -r $(DEB_SOURCE_NAME)-$(VERSION)

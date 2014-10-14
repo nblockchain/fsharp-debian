@@ -6,6 +6,7 @@ Uploaders: Christopher James Halse Rogers <raof@ubuntu.com>
 Build-Depends: debhelper (>= 8.0.0),
   dh-autoreconf,
   cli-common-dev (>= 0.9),
+  tofrodos
 Standards-Version: 3.9.5
 Homepage: http://fsharp.org
 Vcs-Git: git://anongit.debian.org/pkg-cli-apps/packages/fsharp.git
