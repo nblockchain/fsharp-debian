@@ -5,7 +5,7 @@ Maintainer: Debian CLI Applications Team <pkg-cli-apps-team@lists.alioth.debian.
 Uploaders: Christopher James Halse Rogers <raof@ubuntu.com>
 Build-Depends: debhelper (>= 8.0.0),
   dh-autoreconf,
-  cli-common-dev (>= 0.9),
+  cli-common-dev (>= 0.9~),
   tofrodos
 Standards-Version: 3.9.5
 Homepage: http://fsharp.org
