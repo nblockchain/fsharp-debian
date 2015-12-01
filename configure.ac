@@ -9,9 +9,13 @@ AC_PROG_MAKE_SET
 
 AC_PATH_PROG(PKG_CONFIG, pkg-config, no)
 
-# On OSX use Mono's private copy of pkg-config if it exists, see https://github.com/fsharp/fsharp/issues/107
+# pkg-config precedence: 1) our prefix 2) the system Mono location 3) the PATH
+prefix_pkg_config="$prefix"/bin/pkg-config
 osx_pkg_config=/Library/Frameworks/Mono.framework/Versions/Current/bin/pkg-config
-if test -e $osx_pkg_config; then
+
+if test -e $prefix_pkg_config; then
+    PKG_CONFIG=$prefix_pkg_config
+elif test -e $osx_pkg_config; then
     PKG_CONFIG=$osx_pkg_config
 elif test "x$PKG_CONFIG" = "xno"; then
         AC_MSG_ERROR([You need to install pkg-config])
@@ -52,7 +56,18 @@ AC_ARG_WITH([gacdir],
         )
 
 MONOPREFIX=$(cd `$PKG_CONFIG --variable=prefix mono` && pwd)
+MONOBINDIR="$MONOPREFIX"/bin
 MONOLIBDIR="$MONOPREFIX"/lib
+
+AC_PATH_PROG(XBUILD, xbuild, no)
+xbuild_from_pkg_config="$MONOBINDIR"/xbuild
+if test -e $xbuild_from_pkg_config; then
+    XBUILD=$xbuild_from_pkg_config
+elif test "x$XBUILD" == "xno"; then
+    AC_MSG_ERROR([Could not find xbuild])
+fi
+AC_MSG_NOTICE(xbuild: $XBUILD)
+
 MONOGACDIR="$MONOLIBDIR"/mono
 if ! test "x$with_gacdir" = "xno"; then
 	MONOGACDIR=$(cd "$with_gacdir/.." && pwd)
@@ -61,10 +76,21 @@ fi
 MONOGACDIR20="$MONOGACDIR"/2.0
 MONOGACDIR35="$MONOGACDIR"/3.5
 MONOGACDIR40="$MONOGACDIR"/4.0
+MONOGACDIR45="$MONOGACDIR"/4.5
 
-if ! test -e $MONOGACDIR20/mscorlib.dll; then
+if ! test -e $MONOGACDIR20/mscorlib.dll -o -e $MONOGACDIR45/mscorlib.dll; then
 	AC_ERROR(Couldn't find the mono gac directory or mscorlib.dll in the usual places. Set --with-gacdir=<path>)
 fi
+
+if test -e $MONOLIBDIR/mono/xbuild-frameworks/.NETPortable/v4.0/Profile/Profile47/mscorlib.dll; then
+   PCLENABLED47=yes
+else
+   PCLENABLED47=no
+fi
+AC_MSG_NOTICE(PCL Reference Assemblies for Profile 47 found: $PCLENABLED47)
+
+AC_SUBST(PCLENABLED47)
+
 
 if test -e $MONOLIBDIR/mono/xbuild-frameworks/.NETPortable/v4.0/Profile/Profile47/mscorlib.dll; then
    PCLENABLED47=yes
@@ -103,6 +129,19 @@ AC_MSG_NOTICE(PCL Reference Assemblies for Profile 259 found: $PCLENABLED259)
 
 AC_SUBST(PCLENABLED259)
 
+# We enable MonoTouch and MonoDroid builds if PCL components are available.
+# These build using binaries from dependencies/mono/2.1, but see
+# https://github.com/fsharp/fsharp/issues/391 where PCL is a requirement of
+# Microsoft.Common.targets when used in this configuration
+MONOTOUCHENABLED=$PCLENABLED78
+MONODROIDENABLED=$PCLENABLED78
+XAMARINMACENABLED=$PCLENABLED78
+
+AC_SUBST(MONOTOUCHENABLED)
+AC_SUBST(MONODROIDENABLED)
+AC_SUBST(XAMARINMACENABLED)
+
+AC_SUBST(MONOBINDIR)
 AC_SUBST(MONOLIBDIR)
 AC_SUBST(MONOGACDIR)
 
@@ -130,6 +169,10 @@ src/fsharp/fsiAnyCpu/Makefile
 src/fsharp/policy.2.0.FSharp.Core/Makefile
 src/fsharp/policy.2.3.FSharp.Core/Makefile
 src/fsharp/policy.3.3.FSharp.Core/Makefile
+src/fsharp/policy.3.7.FSharp.Core/Makefile
+src/fsharp/policy.3.47.FSharp.Core/Makefile
+src/fsharp/policy.3.78.FSharp.Core/Makefile
+src/fsharp/policy.3.259.FSharp.Core/Makefile
 src/fsharp/policy.4.0.FSharp.Core/Makefile
 src/fsharp/policy.4.3.FSharp.Core/Makefile
 ])

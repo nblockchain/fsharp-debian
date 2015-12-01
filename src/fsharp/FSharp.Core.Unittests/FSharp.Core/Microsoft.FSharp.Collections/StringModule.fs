@@ -41,8 +41,8 @@ type StringModule() =
         let e6 = String.concat "foo" ["bar"]
         Assert.AreEqual("bar", e6)
         
-        let e7 = String.concat "foo" ["bar";"baz"]
-        Assert.AreEqual("barfoobaz", e7)
+        let e7 = String.concat "foo" ["bav";"baz"]
+        Assert.AreEqual("bavfoobaz", e7)
 
         let e8 = String.concat "foo" [null;"baz";null;"bar"]
         Assert.AreEqual("foobazfoofoobar", e8)
@@ -84,6 +84,20 @@ type StringModule() =
 
         let e2 = String.mapi (fun i c -> c) null 
         Assert.AreEqual("", e2)
+
+    [<Test>]
+    member this.Filter() =
+        let e1 = String.filter (fun c -> true) "foo"
+        Assert.AreEqual("foo", e1)
+
+        let e2 = String.filter (fun c -> true) null 
+        Assert.AreEqual("", e2)
+
+        let e3 = String.filter (fun c -> c <> 'o') "foo bar"
+        Assert.AreEqual("f bar", e3)
+
+        let e4 = String.filter (fun c -> c <> 'o') ""
+        Assert.AreEqual("", e4)
 
     [<Test>]
     member this.Collect() =
