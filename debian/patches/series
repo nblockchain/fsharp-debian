@@ -1,3 +1,2 @@
 no-nuget.patch
-integrate-powerpack-sources-into-buildsystem.patch
 debian-cli-policy.patch
