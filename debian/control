@@ -3,7 +3,7 @@ Section: cli-mono
 Priority: optional
 Maintainer: Debian CLI Applications Team <pkg-cli-apps-team@lists.alioth.debian.org>
 Uploaders: Christopher James Halse Rogers <raof@ubuntu.com>
-Build-Depends: debhelper (>= 8.0.0),
+Build-Depends: debhelper (>= 8.0.0~),
   dh-autoreconf,
   cli-common-dev (>= 0.9~),
   tofrodos
@@ -20,6 +20,7 @@ Depends:
   ${shlibs:Depends},
   ${misc:Depends},
   libmono-compilerservices-symbolwriter4.0-cil,
+  mono-devel (>= 4.0.0~)
 Breaks: fsharp-console (<< 3.0.34+dfsg-3)
 Replaces: fsharp-console (<< 3.0.34+dfsg-3)
 Description: functional-first programming language - compiler for the CLI
@@ -41,7 +42,7 @@ Description: functional-first programming language - core runtime library
  .
  This package contains the core runtime library for F# binaries.
 
-Package: libfsharp-data-typeproviders4.3-cil
+Package: libfsharp-data-typeproviders4.4-cil
 Architecture: all
 Depends:
   ${cli:Depends},
