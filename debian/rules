@@ -16,8 +16,8 @@
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
 
-POWERPACK = https://github.com/fsprojects/powerpack/archive/c69b3932b5dc5b41889f074c9cba5ed44d353f29.tar.gz
-POWERPACK_FILE = $(shell basename $(POWERPACK))
+FSLEXYACC = https://github.com/fsprojects/FsLexYacc/archive/v6.1.0.tar.gz
+FSLEXYACC_FILE = $(shell basename $(FSLEXYACC))
 
 MAKEFILE = $(firstword $(MAKEFILE_LIST))
 DEBIAN_DIR = $(dir $(MAKEFILE))
@@ -38,14 +38,11 @@ override_dh_fixperms:
 
 override_dh_auto_build:
 	dh_auto_build
-	xbuild FsLex/FsLex.fsproj
-	xbuild FsYacc/FsYacc.fsproj
-	xbuild FsSrGen/FsSrGen.fsproj
-	xbuild FSharp.SRGen.Build.Tasks/FSharp.SRGen.Build.Tasks.fsproj
-	xbuild FSharp.PowerPack.Build.Tasks/FSharp.PowerPack.Build.Tasks.fsproj
-	sed -e 's#@DIR@/@TOOL@#/usr/lib/cli/fsharp/FsLex.exe#' -e 's/--exename:$$(basename $$0) //' launcher.in > lib/release/fslex
-	sed -e 's#@DIR@/@TOOL@#/usr/lib/cli/fsharp/FsYacc.exe#' -e 's/--exename:$$(basename $$0) //' launcher.in > lib/release/fsyacc
-	sed -e 's#@DIR@/@TOOL@#/usr/lib/cli/fsharp/FsSrGen.exe#' -e 's/--exename:$$(basename $$0) //' launcher.in > lib/release/fssrgen
+	xbuild lib/bootstrap/src/FsLex/FsLex.fsproj
+	xbuild lib/bootstrap/src/FsYacc/FsYacc.fsproj
+	xbuild lib/bootstrap/src/FSharp.SRGen.Build.Tasks/FSharp.SRGen.Build.Tasks.fsproj
+	xbuild lib/bootstrap/src/FsLexYacc.Build.Tasks/FsLexYacc.Build.Tasks.fsproj
+
 
 override_dh_clideps:
 	dh_clideps --exclude-moduleref=mscoree.dll
@@ -65,13 +62,13 @@ get-orig-source:
 		exit 1; \
 	fi
 	tar -xzf $(DEB_SOURCE_NAME)_$(VERSION).orig.tar.gz
-	wget $(POWERPACK)
-	tar -xzf $(POWERPACK_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION) --strip=3 --wildcards \*/workyard/FsSrGen/\*
-	tar -xzf $(POWERPACK_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION) --strip=2 --wildcards \*/src/FsLex
-	tar -xzf $(POWERPACK_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION) --strip=2 --wildcards \*/src/FsYacc
-	tar -xzf $(POWERPACK_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION) --strip=2 --wildcards \*/src/FSharp.PowerPack
-	tar -xzf $(POWERPACK_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION) --strip=2 --wildcards \*/src/FSharp.PowerPack.Build.Tasks
-	rm $(POWERPACK_FILE)
+	wget $(FSLEXYACC)
+	tar -xzf $(FSLEXYACC_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/src/ --strip=2 --wildcards \*/src/FsLex
+	tar -xzf $(FSLEXYACC_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/src/ --strip=2 --wildcards \*/src/FsYacc
+	tar -xzf $(FSLEXYACC_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/src/ --strip=2 --wildcards \*/src/FsYacc.Runtime
+	tar -xzf $(FSLEXYACC_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/src/ --strip=2 --wildcards \*/src/Common
+	tar -xzf $(FSLEXYACC_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/src/ --strip=2 --wildcards \*/src/FsLexYacc.Build.Tasks
+	rm $(FSLEXYACC_FILE)
 	rm $(DEB_SOURCE_NAME)_$(VERSION).orig.tar.gz
 	find $(DEB_SOURCE_NAME)-$(VERSION) -name "*.exe" | grep -v "bootstrap"
 	find $(DEB_SOURCE_NAME)-$(VERSION) -name "*.exe" | grep -v "bootstrap" | xargs rm -f
@@ -79,9 +76,10 @@ get-orig-source:
 	find $(DEB_SOURCE_NAME)-$(VERSION) -name "*.dll" | grep -v "bootstrap" | xargs rm -f
 	find $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/signed
 	rm -rf $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/signed
+	rm -f $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/4.0/FSharp.VsSqmMulti.dll
 	find $(DEB_SOURCE_NAME)-$(VERSION) -type f -name \*.fsproj -print0 | xargs -0 fromdos
-	tar --mtime=@1255820400 -cf ./$(DEB_SOURCE_NAME)_$(VERSION)+dfsg2.orig.tar $(DEB_SOURCE_NAME)-$(VERSION)
-	gzip -9fn ./$(DEB_SOURCE_NAME)_$(VERSION)+dfsg2.orig.tar
+	tar --mtime=@1255820400 -cf ./$(DEB_SOURCE_NAME)_$(VERSION)+dfsg.orig.tar $(DEB_SOURCE_NAME)-$(VERSION)
+	gzip -9fn ./$(DEB_SOURCE_NAME)_$(VERSION)+dfsg.orig.tar
 	rm -r $(DEB_SOURCE_NAME)-$(VERSION)
 
 %:
