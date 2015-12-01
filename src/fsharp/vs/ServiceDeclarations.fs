@@ -20,18 +20,18 @@ open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.AbstractIL.Diagnostics 
 open Microsoft.FSharp.Compiler.PrettyNaming
 
-open Microsoft.FSharp.Compiler.Env 
+open Microsoft.FSharp.Compiler.TcGlobals 
 open Microsoft.FSharp.Compiler.Parser
 open Microsoft.FSharp.Compiler.Range
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.ErrorLogger
-open Microsoft.FSharp.Compiler.Build
+open Microsoft.FSharp.Compiler.CompileOps
 open Microsoft.FSharp.Compiler.Tast
 open Microsoft.FSharp.Compiler.Tastops
 open Microsoft.FSharp.Compiler.Lib
 open Microsoft.FSharp.Compiler.Layout
 open Microsoft.FSharp.Compiler.Infos
-open Microsoft.FSharp.Compiler.Nameres
+open Microsoft.FSharp.Compiler.NameResolution
 open ItemDescriptionIcons 
 
 module EnvMisc2 =
@@ -107,35 +107,6 @@ module internal ItemDescriptionsImpl =
           
     // Format the supertypes and other useful information about a type to a buffer
     let OutputUsefulTypeInfo _isDeclInfo (_infoReader:InfoReader) _m _denv _os _ty = ()
-#if DISABLED
-        if false then 
-          ErrorScope.ProtectAndDiscard m (fun () -> 
-            let g = infoReader.g
-            let amap = infoReader.amap
-            let supertypes = 
-                let supertypes = AllSuperTypesOfType g amap m AllowMultiIntfInstantiations.Yes ty
-                let supertypes = supertypes |> List.filter (AccessibilityLogic.IsTypeAccessible g AccessibleFromSomewhere) 
-                let supertypes = supertypes |> List.filter (typeEquiv g g.obj_ty >> not) 
-                let selfs,supertypes = supertypes |> List.partition (typeEquiv g ty) 
-                let supertypesC,supertypesI = supertypes |> List.partition (isInterfaceTy g)
-                let supertypes = selfs @ supertypesC @ supertypesI
-                supertypes
-            let supertypeLs,_ = NicePrint.layoutPrettifiedTypes denv supertypes 
-            // Suppress printing supertypes for enums, delegates, exceptions and attributes
-            if supertypes.Length > 1 // more then self
-                && not (isEnumTy g ty) 
-                && not (isUnionTy g ty) 
-                && not (isRecdTy g ty) 
-                && not (isDelegateTy g ty) 
-                && not (ExistsHeadTypeInEntireHierarchy g amap m ty g.exn_tcr) 
-                && not (ExistsHeadTypeInEntireHierarchy g amap m ty g.tcref_System_Attribute) then 
-                bprintf os "\n\n";
-                List.zip supertypes supertypeLs |> List.iter (fun (superty,supertyL) -> 
-                    if typeEquiv g superty ty then bprintf os "  %s: %a\n" (FSComp.SR.typeInfoType()) bufferL supertyL
-                    elif isClassTy g superty || isInterfaceTy g ty then bprintf os "  %s: %a\n" (FSComp.SR.typeInfoInherits()) bufferL supertyL
-                    else bprintf os "  %s: %a\n" (FSComp.SR.typeInfoImplements()) bufferL supertyL))
-#endif
-           
     
     let rangeOfPropInfo (pinfo:PropInfo) =
         match pinfo with
@@ -144,11 +115,12 @@ module internal ItemDescriptionsImpl =
 #endif
         |   _ -> pinfo.ArbitraryValRef |> Option.map (fun v -> v.Range)
 
-    let rangeOfMethInfo (minfo:MethInfo) = 
+    let rangeOfMethInfo (g:TcGlobals) (minfo:MethInfo) = 
         match minfo with
 #if EXTENSIONTYPING 
         |   ProvidedMeth(_,mi,_,_) -> definitionLocationOfProvidedItem mi
 #endif
+        |   DefaultStructCtor(_, AppTy g (tcref, _)) -> Some(tcref.Range)
         |   _ -> minfo.ArbitraryValRef |> Option.map (fun v -> v.Range)
 
     let rangeOfEventInfo (einfo:EventInfo) = 
@@ -158,14 +130,10 @@ module internal ItemDescriptionsImpl =
 #endif
         | _ -> einfo.ArbitraryValRef |> Option.map (fun v -> v.Range)
       
-    // skip all default generated constructors for structs
-    let (|FilterDefaultStructCtors|) ctors =
-        ctors |> List.filter (function DefaultStructCtor _ -> false | _ -> true)
-
     let rec rangeOfItem (g:TcGlobals) isDeclInfo d = 
         match d with
         | Item.Value vref  | Item.CustomBuilder (_,vref) -> Some (if isDeclInfo then vref.Range else vref.DefinitionRange)
-        | Item.UnionCase ucinfo        -> Some ucinfo.UnionCase.Range
+        | Item.UnionCase(ucinfo,_)     -> Some ucinfo.UnionCase.Range
         | Item.ActivePatternCase apref -> Some apref.ActivePatternVal.Range
         | Item.ExnCase tcref           -> Some tcref.Range
         | Item.RecdField rfinfo        -> Some rfinfo.RecdFieldRef.Range
@@ -173,11 +141,11 @@ module internal ItemDescriptionsImpl =
         | Item.ILField _               -> None
         | Item.Property(_,pinfos)      -> rangeOfPropInfo pinfos.Head 
         | Item.Types(_,(typ :: _))     -> tryNiceEntityRefOfTy typ |> Option.map (fun tcref -> tcref.Range)
-        | Item.CustomOperation (_,_,Some minfo)  -> rangeOfMethInfo minfo
+        | Item.CustomOperation (_,_,Some minfo)  -> rangeOfMethInfo g minfo
         | Item.TypeVar _  -> None
         | Item.ModuleOrNamespaces(modref :: _) -> Some modref.Range
-        | Item.MethodGroup(_,(minfo :: _)) 
-        | Item.CtorGroup(_,FilterDefaultStructCtors(minfo :: _)) -> rangeOfMethInfo minfo
+        | Item.MethodGroup(_,minfo :: _) 
+        | Item.CtorGroup(_,minfo :: _) -> rangeOfMethInfo g minfo
         | Item.ActivePatternResult(APInfo _,_, _, m) -> Some m
         | Item.SetterArg (_,item) -> rangeOfItem g isDeclInfo item
         | Item.ArgName _ -> None
@@ -190,18 +158,23 @@ module internal ItemDescriptionsImpl =
 #endif
         ccuOfTyconRef tcref
 
+    let ccuOfMethInfo (g:TcGlobals) (minfo:MethInfo) = 
+        match minfo with
+        | DefaultStructCtor(_, AppTy g (tcref, _)) -> computeCcuOfTyconRef tcref
+        | _ -> minfo.ArbitraryValRef |> Option.bind ccuOfValRef
+
     let rec ccuOfItem g d = 
         match d with
         | Item.Value vref | Item.CustomBuilder (_,vref) -> ccuOfValRef vref 
-        | Item.UnionCase ucinfo                -> computeCcuOfTyconRef ucinfo.TyconRef
+        | Item.UnionCase(ucinfo,_)             -> computeCcuOfTyconRef ucinfo.TyconRef
         | Item.ActivePatternCase apref         -> ccuOfValRef apref.ActivePatternVal
         | Item.ExnCase tcref                   -> computeCcuOfTyconRef tcref
         | Item.RecdField rfinfo                -> computeCcuOfTyconRef rfinfo.RecdFieldRef.TyconRef
         | Item.Event einfo                     -> einfo.ArbitraryValRef |> Option.bind ccuOfValRef
         | Item.ILField _                       -> None
         | Item.Property(_,pinfos)              -> pinfos.Head.ArbitraryValRef |> Option.bind ccuOfValRef
-        | Item.MethodGroup(_,(minfo :: _)) 
-        | Item.CtorGroup(_,FilterDefaultStructCtors(minfo :: _)) -> minfo.ArbitraryValRef |> Option.bind ccuOfValRef
+        | Item.MethodGroup(_,minfo :: _) 
+        | Item.CtorGroup(_,minfo :: _)         -> ccuOfMethInfo g minfo
         | Item.Types(_,(typ :: _))             -> tryNiceEntityRefOfTy typ |> Option.bind (fun tcref -> computeCcuOfTyconRef tcref)
         | Item.TypeVar _  -> None
         | Item.CustomOperation (_,_,Some minfo)       -> minfo.ArbitraryValRef |> Option.bind ccuOfValRef
@@ -348,7 +321,7 @@ module internal ItemDescriptionsImpl =
                 | None -> XmlCommentNone
             else 
                 XmlCommentNone
-        | Item.UnionCase  ucinfo -> GetXmlDocSigOfUnionCaseInfo ucinfo
+        | Item.UnionCase (ucinfo,_) -> GetXmlDocSigOfUnionCaseInfo ucinfo
         | Item.ExnCase tcref -> GetXmlDocSigOfEntityRef infoReader m tcref 
         | Item.RecdField rfinfo -> GetXmlDocSigOfRecdFieldInfo rfinfo
         | Item.NewDef _ -> XmlCommentNone
@@ -439,7 +412,7 @@ module internal ItemDescriptionsImpl =
     
     // Like Seq.distinctBy but only filters out duplicates for some of the elements
     let partialDistinctBy (per:IPartialEqualityComparer<_>) seq =
-        // Wrap a Wrap _ aroud all keys in case the key type is itself a type using null as a representation
+        // Wrap a Wrap _ around all keys in case the key type is itself a type using null as a representation
         let dict = new Dictionary<WrapType<'T>,obj>(per)
         seq |> List.filter (fun v -> 
             let v = Wrap(v)
@@ -512,7 +485,7 @@ module internal ItemDescriptionsImpl =
               | Wrap(Item.Value vref1 | Item.CustomBuilder (_,vref1)), Wrap(Item.Value vref2 | Item.CustomBuilder (_,vref2)) -> valRefEq g vref1 vref2
               | Wrap(Item.ActivePatternCase(APElemRef(_apinfo1, vref1, idx1))), Wrap(Item.ActivePatternCase(APElemRef(_apinfo2, vref2, idx2))) ->
                   idx1 = idx2 && valRefEq g vref1 vref2
-              | Wrap(Item.UnionCase(UnionCaseInfo(_, ur1))), Wrap(Item.UnionCase(UnionCaseInfo(_, ur2))) -> g.unionCaseRefEq ur1 ur2
+              | Wrap(Item.UnionCase(UnionCaseInfo(_, ur1),_)), Wrap(Item.UnionCase(UnionCaseInfo(_, ur2),_)) -> g.unionCaseRefEq ur1 ur2
               | Wrap(Item.RecdField(RecdFieldInfo(_, RFRef(tcref1, n1)))), Wrap(Item.RecdField(RecdFieldInfo(_, RFRef(tcref2, n2)))) -> 
                   (tyconRefEq g tcref1 tcref2) && (n1 = n2) // there is no direct function as in the previous case
               | Wrap(Item.Property(_, pi1s)), Wrap(Item.Property(_, pi2s)) -> 
@@ -543,7 +516,7 @@ module internal ItemDescriptionsImpl =
               | Wrap(Item.Value vref | Item.CustomBuilder (_,vref)) -> hash vref.LogicalName
               | Wrap(Item.ActivePatternCase(APElemRef(_apinfo, vref, idx))) -> hash (vref.LogicalName, idx)
               | Wrap(Item.ExnCase(tcref)) -> hash tcref.Stamp
-              | Wrap(Item.UnionCase(UnionCaseInfo(_, UCRef(tcref, n)))) -> hash(tcref.Stamp, n)
+              | Wrap(Item.UnionCase(UnionCaseInfo(_, UCRef(tcref, n)),_)) -> hash(tcref.Stamp, n)
               | Wrap(Item.RecdField(RecdFieldInfo(_, RFRef(tcref, n)))) -> hash(tcref.Stamp, n)
               | Wrap(Item.Event evt) -> evt.ComputeHashCode()
               | Wrap(Item.Property(_name, pis)) -> hash (pis |> List.map (fun pi -> pi.ComputeHashCode()))
@@ -612,7 +585,7 @@ module internal ItemDescriptionsImpl =
             DataTipElement(text, xml)
 
         // Union tags (constructors)
-        | Item.UnionCase ucinfo -> 
+        | Item.UnionCase(ucinfo,_) -> 
             let uc = ucinfo.UnionCase 
             let rty = generalizedTyconRef ucinfo.TyconRef
             let recd = uc.RecdFields 
@@ -634,7 +607,7 @@ module internal ItemDescriptionsImpl =
         // Active pattern tag inside the declaration (result)             
         | Item.ActivePatternResult(APInfo(_, items), ty, idx, _) ->
             let text = bufs (fun os -> 
-                bprintf os "%s %s: " (FSComp.SR.typeInfoActivePatternResult()) (List.nth items idx) 
+                bprintf os "%s %s: " (FSComp.SR.typeInfoActivePatternResult()) (List.item idx items) 
                 NicePrint.outputTy denv os ty)
             let xml = GetXmlComment (XmlDoc [||]) infoReader m d
             DataTipElement(text, xml)
@@ -887,7 +860,7 @@ module internal ItemDescriptionsImpl =
               bufferL os tpcsL
             else
               bufferL os (NicePrint.layoutPrettifiedTypeAndConstraints denv [] tau) 
-        | Item.UnionCase ucinfo -> 
+        | Item.UnionCase(ucinfo,_) -> 
             let rty = generalizedTyconRef ucinfo.TyconRef
             NicePrint.outputTy denv os rty
         | Item.ActivePatternCase(apref) -> 
@@ -898,7 +871,7 @@ module internal ItemDescriptionsImpl =
             let apnames = apinfo.Names
             let aparity = apnames.Length
             
-            let rty = if aparity <= 1 then res else List.nth (argsOfAppTy g res) apref.CaseIndex
+            let rty = if aparity <= 1 then res else List.item apref.CaseIndex (argsOfAppTy g res)
             NicePrint.outputTy denv os rty
         | Item.ExnCase _ -> 
             bufferL os (NicePrint.layoutPrettifiedTypeAndConstraints denv [] g.exn_ty) 
@@ -971,7 +944,7 @@ module internal ItemDescriptionsImpl =
         | Item.Value vref | Item.CustomBuilder (_,vref) -> getKeywordForValRef vref
         | Item.ActivePatternCase apref -> apref.ActivePatternVal |> getKeywordForValRef
 
-        | Item.UnionCase ucinfo -> 
+        | Item.UnionCase(ucinfo,_) -> 
             (ucinfo.TyconRef |> ticksAndArgCountTextOfTyconRef)+"."+ucinfo.Name |> Some
 
         | Item.RecdField rfi -> 

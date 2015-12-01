@@ -149,7 +149,6 @@ type [<Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1704:Iden
     let mutable win32res : string = null
     let mutable win32manifest : string = null
     let mutable vserrors : bool = false
-    let mutable validateTypeProviders : bool = false
     let mutable vslcid : string = null
     let mutable utf8output : bool = false
     let mutable subsystemVersion : string = null
@@ -324,10 +323,6 @@ type [<Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1704:Iden
         with get() = vserrors
         and set(p) = vserrors <- p
 
-    member fsc.ValidateTypeProviders
-        with get() = validateTypeProviders
-        and set(p) = validateTypeProviders <- p
-
     member fsc.LCID
         with get() = vslcid
         and set(p) = vslcid <- p
@@ -365,8 +360,8 @@ type [<Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1704:Iden
         base.ExecuteTool(pathToTool, responseFileCommands, commandLineCommands)
     /// Intercept the call to ExecuteTool to handle the host compile case.
     override fsc.ExecuteTool(pathToTool, responseFileCommands, commandLineCommands) =
-        let ho = box fsc.HostObject
-        match ho with
+        let host = box fsc.HostObject
+        match host with
         | null ->
             base.ExecuteTool(pathToTool, responseFileCommands, commandLineCommands)
         | _ ->
@@ -377,7 +372,7 @@ type [<Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1704:Iden
             let baseCallDelegate = new System.Converter<int,int>(baseCall)
             try 
                 let ret = 
-                    (ho.GetType()).InvokeMember("Compile", BindingFlags.Public ||| BindingFlags.NonPublic ||| BindingFlags.InvokeMethod ||| BindingFlags.Instance, null, ho, 
+                    (host.GetType()).InvokeMember("Compile", BindingFlags.Public ||| BindingFlags.NonPublic ||| BindingFlags.InvokeMethod ||| BindingFlags.Instance, null, host, 
                                                 [| box baseCallDelegate; box (capturedArguments |> List.toArray); box (capturedFilenames |> List.toArray) |],
                                                 System.Globalization.CultureInfo.InvariantCulture)
                 unbox ret
@@ -508,10 +503,6 @@ type [<Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1704:Iden
         // VisualStudioStyleErrors 
         if vserrors then
             builder.AppendSwitch("--vserrors")      
-
-        // ValidateTypeProviders 
-        if validateTypeProviders then
-            builder.AppendSwitch("--validate-type-providers")           
 
         builder.AppendSwitchIfNotNull("--LCID:", vslcid)
         

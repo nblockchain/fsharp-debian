@@ -20,7 +20,12 @@ type ILList<'T> = ThreeList<'T>
 //#if ABSIL_USES_LIST_FOR_ILLIST
 type ILList<'T> = 'T list
 //#endif
- 
+
+type PrimaryAssembly = 
+    | Mscorlib
+    | DotNetCore
+
+    member Name: string
 
 // ====================================================================
 // .NET binaries can be converted to the data structures below by using 
@@ -965,7 +970,8 @@ type ILNativeType =
 [<NoComparison; NoEquality>]
 type ILLocal = 
     { Type: ILType;
-      IsPinned: bool }
+      IsPinned: bool;
+      DebugInfo: (string * int * int) option }
      
 
 type ILLocals = ILList<ILLocal>
@@ -1791,11 +1797,9 @@ val destTypeDefsWithGlobalFunctionsFirst: ILGlobals -> ILTypeDefs -> ILTypeDef l
 /// Note: not all custom attribute data can be decoded without binding types.  In particular 
 /// enums must be bound in order to discover the size of the underlying integer. 
 /// The following assumes enums have size int32. 
-/// It also does not completely decode System.Type attributes 
 val decodeILAttribData: 
     ILGlobals -> 
     ILAttribute -> 
-    ILScopeRef option ->
       ILAttribElem list *  (* fixed args *)
       ILAttributeNamedArg list (* named args: values and flags indicating if they are fields or properties *) 
 
@@ -1950,7 +1954,7 @@ val mkILParam: string option * ILType -> ILParameter
 val mkILParamAnon: ILType -> ILParameter
 val mkILParamNamed: string * ILType -> ILParameter
 val mkILReturn: ILType -> ILReturn
-val mkILLocal: ILType -> ILLocal
+val mkILLocal: ILType -> (string * int * int) option -> ILLocal
 val mkILLocals : ILLocal list -> ILLocals
 val emptyILLocals : ILLocals
 
@@ -2212,23 +2216,23 @@ val addPropertyNeverAttrs : ILGlobals -> ILPropertyDef -> ILPropertyDef
 val addFieldNeverAttrs : ILGlobals -> ILFieldDef -> ILFieldDef
 
 /// Discriminating different important built-in types
-val isILObjectTy: ILGlobals -> ILType -> bool
-val isILStringTy: ILGlobals -> ILType -> bool
-val isILSByteTy: ILGlobals -> ILType -> bool
-val isILByteTy: ILGlobals -> ILType -> bool
-val isILInt16Ty: ILGlobals -> ILType -> bool
-val isILUInt16Ty: ILGlobals -> ILType -> bool
-val isILInt32Ty: ILGlobals -> ILType -> bool
-val isILUInt32Ty: ILGlobals -> ILType -> bool
-val isILInt64Ty: ILGlobals -> ILType -> bool
-val isILUInt64Ty: ILGlobals -> ILType -> bool
-val isILIntPtrTy: ILGlobals -> ILType -> bool
-val isILUIntPtrTy: ILGlobals -> ILType -> bool
-val isILBoolTy: ILGlobals -> ILType -> bool
-val isILCharTy: ILGlobals -> ILType -> bool
-val isILTypedReferenceTy: ILGlobals -> ILType -> bool
-val isILDoubleTy: ILGlobals -> ILType -> bool
-val isILSingleTy: ILGlobals -> ILType -> bool
+val isILObjectTy: ILType -> bool
+val isILStringTy: ILType -> bool
+val isILSByteTy: ILType -> bool
+val isILByteTy: ILType -> bool
+val isILInt16Ty: ILType -> bool
+val isILUInt16Ty: ILType -> bool
+val isILInt32Ty: ILType -> bool
+val isILUInt32Ty: ILType -> bool
+val isILInt64Ty: ILType -> bool
+val isILUInt64Ty: ILType -> bool
+val isILIntPtrTy: ILType -> bool
+val isILUIntPtrTy: ILType -> bool
+val isILBoolTy: ILType -> bool
+val isILCharTy: ILType -> bool
+val isILTypedReferenceTy: ILType -> bool
+val isILDoubleTy: ILType -> bool
+val isILSingleTy: ILType -> bool
 
 /// Get a public key token from a public key.
 val sha1HashBytes : byte[] -> byte[] (* SHA1 hash *)
