@@ -6,6 +6,8 @@ Uploaders: Christopher James Halse Rogers <raof@ubuntu.com>
 Build-Depends: debhelper (>= 8.0.0~),
   dh-autoreconf,
   cli-common-dev (>= 0.9~),
+  mono-devel (>= 4.0.0~),
+  libmono-i18n4.0-cil,
   tofrodos
 Standards-Version: 3.9.5
 Homepage: http://fsharp.org
