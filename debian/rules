@@ -40,6 +40,7 @@ override_dh_auto_build:
 	dh_auto_build
 	xbuild lib/bootstrap/src/FsLex/FsLex.fsproj
 	xbuild lib/bootstrap/src/FsYacc/FsYacc.fsproj
+	xbuild lib/bootstrap/src/FsSrGen/FsSrGen.fsproj
 	xbuild lib/bootstrap/src/FSharp.SRGen.Build.Tasks/FSharp.SRGen.Build.Tasks.fsproj
 	xbuild lib/bootstrap/src/FsLexYacc.Build.Tasks/FsLexYacc.Build.Tasks.fsproj
 
