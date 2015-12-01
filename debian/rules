@@ -65,8 +65,8 @@ get-orig-source:
 	wget $(FSLEXYACC)
 	tar -xzf $(FSLEXYACC_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/src/ --strip=2 --wildcards \*/src/FsLex
 	tar -xzf $(FSLEXYACC_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/src/ --strip=2 --wildcards \*/src/FsYacc
-	tar -xzf $(FSLEXYACC_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/src/ --strip=2 --wildcards \*/src/FsYacc.Runtime
 	tar -xzf $(FSLEXYACC_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/src/ --strip=2 --wildcards \*/src/Common
+	tar -xzf $(FSLEXYACC_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/src/ --strip=2 --wildcards \*/src/FsLexYacc.Runtime
 	tar -xzf $(FSLEXYACC_FILE) -C $(DEB_SOURCE_NAME)-$(VERSION)/lib/bootstrap/src/ --strip=2 --wildcards \*/src/FsLexYacc.Build.Tasks
 	rm $(FSLEXYACC_FILE)
 	rm $(DEB_SOURCE_NAME)_$(VERSION).orig.tar.gz
