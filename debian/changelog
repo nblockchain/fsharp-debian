@@ -1,3 +1,22 @@
+fsharp (4.0.0.4+dfsg2-1) experimental; urgency=medium
+
+  * [066b546] Refresh get-orig-source for F# 4.0
+  * [8659ed5] Imported Upstream version 4.0.0.4+dfsg
+  * [f5c1f79] Disable NuGet usage during build
+  * [ad394ee] Delete obsolete patch to bootstrap replacement
+  * [45ae32d] Refreshed debian/patches/debian-cli-policy.patch
+  * [db93ad3] Replacement patch to integrate build system for bootstrap binaries
+  * [519eabc] We messd up +dfsg, so need a +dfsg2
+  * [ced478b] Fix typo in get-orig-source
+  * [d257718] Imported Upstream version 4.0.0.4+dfsg2
+  * [1112301] Build FsSrGen too
+  * [c5c319a] Refresh packaging for F# 4 (Closes: #806216, #794533)
+  * [a567e93] Re-add bootstrap command launch scripts
+  * [2ec9cdf] Better build-dependencies
+  * [60c2349] Assume Mono has 4.5 runtime, not 4.0
+
+ -- Jo Shields <jo.shields@xamarin.com>  Wed, 02 Dec 2015 14:47:27 +0000
+
 fsharp (3.1.1.26+dfsg2-3) unstable; urgency=medium
 
   * [a6804b5] Install sigdata/optdata into the GAC. (Closes: #767507)
