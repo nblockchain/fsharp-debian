@@ -5,16 +5,23 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
     - uses: actions/checkout@v2
-    - name: build and test
+    - name: install dependencies
       run: |
         DEBIAN_FRONTEND=noninteractive sudo apt install -y devscripts autopkgtest debhelper dh-autoreconf cli-common-dev git
 
+    - name: make tarball
+      run: |
         # Make a tarball, coz dpkg-buildpackage needs that for some reason
         git archive -o ../fsharp_4.5.0.tar.gz HEAD
         pushd ..
         ln -s fsharp_4.5.0.tar.gz fsharp_4.5.0.orig.tar.gz
         popd
 
+    - name: build
+      run: |
         dpkg-buildpackage
 
+    - name: test
+      run: |
+        autopkgtest
 
