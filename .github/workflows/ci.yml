@@ -23,5 +23,6 @@ jobs:
 
     - name: test
       run: |
-        autopkgtest
+        sh debian/tests/basic-xbuild-project
+        sh debian/tests/upstream-testsuite
 
