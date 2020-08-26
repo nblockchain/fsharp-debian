@@ -1,0 +1,13 @@
+name: Run package tests
+on: [push, pull_request]
+jobs:
+  build_and_test:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: build and test
+      run: |
+        DEBIAN_FRONTEND=noninteractive sudo apt install -y devscripts autopkgtest
+        dpkg-buildpackage
+
+
