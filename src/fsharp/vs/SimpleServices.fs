@@ -1,17 +1,4 @@
-
-#if SILVERLIGHT
-namespace Microsoft.FSharp.Compiler.Interactive
-
-module Runner = 
-
-    type public InteractiveConsole(argv:string[],reader:System.IO.TextReader, writer:System.IO.TextWriter, error:System.IO.TextWriter) =
-        do
-            Microsoft.FSharp.Core.Printf.setWriter writer
-            Microsoft.FSharp.Core.Printf.setError error
-        let session = Microsoft.FSharp.Compiler.Interactive.Shell.FsiEvaluationSession(argv, reader, writer, error)
-        member x.Run() = session.Run()
-        member x.Interrupt() = session.Interrupt()
-#endif
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 namespace Microsoft.FSharp.Compiler.SimpleSourceCodeServices
 
@@ -85,6 +72,10 @@ namespace Microsoft.FSharp.Compiler.SimpleSourceCodeServices
             async { let! items = results.GetDeclarations(Some info, (line, col), source.[line], (names, residue), hasChangedSinceLastTypeCheck)
                     return [| for i in items.Items -> Declaration(i.Name, (fun () -> formatTip i.DescriptionText xmlCommentRetriever)) |] }
 
+        member x.GetRawDeclarations(line, col, names, residue, formatter:DataTipText->string[]) =
+            async { let! items = results.GetDeclarations(Some info, (line, col), source.[line], (names, residue), hasChangedSinceLastTypeCheck)
+                    return [| for i in items.Items -> i.Name, (fun() -> formatter i.DescriptionText), i.Glyph |] }
+
         /// Get the Visual Studio F1-help keyword for the item at the given position
         member x.GetF1Keyword(line, col, names) =
             results.GetF1Keyword((line, col), source.[line], names)
@@ -93,6 +84,9 @@ namespace Microsoft.FSharp.Compiler.SimpleSourceCodeServices
         member x.GetDataTipText(line, col, names, ?xmlCommentRetriever) =
             let tip = results.GetDataTipText((line, col), source.[line], names, identToken)
             formatTip tip xmlCommentRetriever
+
+        member x.GetRawDataTipText(line, col, names) =
+            results.GetDataTipText((line, col), source.[line], names, identToken)
 
         /// Get the location of the declaration at the given position
         member x.GetDeclarationLocation(line: int, col: int, names, isDecl) =
@@ -192,13 +186,8 @@ namespace Microsoft.FSharp.Compiler.SimpleSourceCodeServices
         member x.CompileToDynamicAssembly (otherFlags: string[], execute: (TextWriter * TextWriter) option)  = 
             match execute with
             | Some (writer,error) -> 
-#if SILVERLIGHT
-                Microsoft.FSharp.Core.Printf.setWriter writer
-                Microsoft.FSharp.Core.Printf.setError error
-#else
                 System.Console.SetOut writer
                 System.Console.SetError error
-#endif
             | None -> ()
             let tcImportsRef = ref None
             let res = ref None

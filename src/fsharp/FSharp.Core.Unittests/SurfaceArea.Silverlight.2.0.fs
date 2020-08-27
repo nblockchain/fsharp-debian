@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
 namespace FSharp.Core.Unittests.SurfaceArea
 open System.IO
 open NUnit.Framework
@@ -2906,6 +2908,6 @@ System.Tuple`8[T1,T2,T3,T4,T5,T6,T7,TRest]: Void .ctor(T1, T2, T3, T4, T5, T6, T
 "
 
         let act = actual.ToString()
-        if expected <> act then
+        if expected.Replace("\r\n","\n") <> act.Replace("\r\n","\n") then
             printf "%s" act
         Assert.AreEqual(expected, act)

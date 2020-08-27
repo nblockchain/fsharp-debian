@@ -1,13 +1,4 @@
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 namespace Internal.Utilities.Text.Parsing
 open Internal.Utilities
@@ -95,9 +86,9 @@ type internal Tables<'tok> =
     /// Returns an object indicating the final synthesized value for the parse.
     member Interpret :  lexer:(LexBuffer<char> -> 'tok) * lexbuf:LexBuffer<char> * startState:int -> obj 
 
-/// Indicates an accept action has occured
+/// Indicates an accept action has occurred
 exception internal Accept of obj
-/// Indicates a parse error has occured and parse recovery is in progress
+/// Indicates a parse error has occurred and parse recovery is in progress
 exception internal RecoverableParseError
 
 #if DEBUG

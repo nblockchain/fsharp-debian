@@ -1,18 +1,21 @@
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
 namespace Microsoft.FSharp.Compiler
 
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Range
 open Microsoft.FSharp.Compiler.ErrorLogger
 open Microsoft.FSharp.Compiler.AbstractIL.Internal.Library
-open Microsoft.FSharp.Compiler.Build
+open Microsoft.FSharp.Compiler.TcGlobals
+open Microsoft.FSharp.Compiler.CompileOps
 
 
 [<RequireQualifiedAccess>]
-type (* internal *) Severity = 
+type internal Severity = 
     | Warning 
     | Error
 
-type (* internal *) ErrorInfo = 
+type internal ErrorInfo = 
     { FileName:string
       StartLine:int
       EndLine:int
@@ -21,12 +24,11 @@ type (* internal *) ErrorInfo =
       Severity:Severity
       Message:string
       Subcategory:string }
-    static member internal CreateFromExceptionAndAdjustEof : PhasedError * bool * bool * range * (int*int) -> ErrorInfo
-    static member internal CreateFromException : PhasedError * bool * bool * range -> ErrorInfo
+    static member CreateFromExceptionAndAdjustEof : PhasedError * bool * bool * range * (int*int) -> ErrorInfo
 
 // implementation details used by other code in the compiler    
 [<Sealed>]
-type (* internal *) ErrorScope = 
+type internal ErrorScope = 
     interface System.IDisposable
     new : unit -> ErrorScope
     member ErrorsAndWarnings : ErrorInfo list
@@ -105,7 +107,7 @@ module internal IncrementalFSharpBuild =
   type IBEvent =
         | IBEParsed of string // filename
         | IBETypechecked of string // filename
-        | IBENuked
+        | IBEDeleted
 
     /// Used for unit testing
   val GetMostRecentIncrementalBuildEvents : int -> IBEvent list
@@ -123,7 +125,7 @@ module internal IncrementalFSharpBuild =
       }    
     
   type IncrementalBuilder = 
-      new : tcConfig : Build.TcConfig * projectDirectory : string * assemblyName : string * niceNameGen : Microsoft.FSharp.Compiler.Ast.NiceNameGenerator *
+      new : tcConfig : TcConfig * projectDirectory : string * assemblyName : string * niceNameGen : Microsoft.FSharp.Compiler.Ast.NiceNameGenerator *
             lexResourceManager : Microsoft.FSharp.Compiler.Lexhelp.LexResourceManager * sourceFiles : string list * ensureReactive : bool *
             errorLogger : ErrorLogger * keepGeneratedTypedAssembly:bool
         -> IncrementalBuilder
@@ -136,7 +138,7 @@ module internal IncrementalFSharpBuild =
       member IsAlive : bool
 
       /// The TcConfig passed in to the builder creation.
-      member TcConfig : Build.TcConfig
+      member TcConfig : TcConfig
 
       /// Raised just before a file is type-checked, to invalidate the state of the file in VS and force VS to request a new direct typecheck of the file.
       /// The incremental builder also typechecks the file (error and intellisense results from the backgroud builder are not
@@ -158,10 +160,10 @@ module internal IncrementalFSharpBuild =
       /// Ensure that the given file has been typechecked.
       /// Get the preceding typecheck state of a slot, allow stale results.
       member GetAntecedentTypeCheckResultsBySlot :
-        int -> (Build.TcState * Build.TcImports * Microsoft.FSharp.Compiler.Env.TcGlobals * Build.TcConfig * (PhasedError * bool) list * System.DateTime) option
+        int -> (TcState * TcImports * Microsoft.FSharp.Compiler.TcGlobals.TcGlobals * TcConfig * (PhasedError * bool) list * System.DateTime) option
 
       /// Get the final typecheck result. Only allowed when 'generateTypedImplFiles' was set on Create, otherwise the TypedAssembly will have not implementations.
-      member TypeCheck : unit -> Build.TcState * TypeChecker.TopAttribs * Tast.TypedAssembly * TypeChecker.TcEnv * Build.TcImports * Env.TcGlobals * Build.TcConfig
+      member TypeCheck : unit -> TcState * TypeChecker.TopAttribs * Tast.TypedAssembly * TypeChecker.TcEnv * TcImports * TcGlobals * TcConfig
 
       /// Attempts to find the slot of the given input file name. Throws an exception if it couldn't find it.    
       member GetSlotOfFileName : string -> int

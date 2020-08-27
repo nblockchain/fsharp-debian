@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
 // Various tests for the:
 // Microsoft.FSharp.Control.Async module
 
@@ -7,6 +9,14 @@ open System
 open FSharp.Core.Unittests.LibraryTestFx
 open NUnit.Framework
 
+module LeakUtils =
+    // when testing for liveness, the things that we want to observe must always be created in
+    // a nested function call to avoid the GC (possibly) treating them as roots past the last use in the block.
+    // We also need something non trivial to disuade the compiler from inlining in Release builds.
+    type ToRun<'a>(f : unit -> 'a) =
+        member this.Invoke() = f()
+   
+    let run (toRun : ToRun<'a>) = toRun.Invoke()
 
 // ---------------------------------------------------
 
@@ -101,7 +111,7 @@ type AsyncModule() =
 
         let endMs = DateTime.Now.Millisecond
         let delta = endMs - startMs
-        Assert.IsTrue(abs ((abs delta) - 500) < 50, sprintf "Delta is too big %d" delta)
+        Assert.IsTrue(abs ((abs delta) - 500) < 400, sprintf "Delta is too big %d" delta)
 
     [<Test>]
     member this.``AwaitWaitHandle.TimeoutWithCancellation``() = 
@@ -189,6 +199,41 @@ type AsyncModule() =
 
         for _i = 1 to 50 do test()
 
+
+    [<Test>]
+    member this.``Async.AwaitWaitHandle does not leak memory`` () =
+        // This test checks that AwaitWaitHandle does not leak continuations (described in #131),
+        // We only test the worst case - when the AwaitWaitHandle is already set.
+        use manualResetEvent = new System.Threading.ManualResetEvent(true)
+        
+        let tryToLeak() = 
+            let resource = 
+                LeakUtils.ToRun (fun () ->
+                    let resource = obj()
+                    let work = 
+                        async { 
+                            let! _ = Async.AwaitWaitHandle manualResetEvent
+                            GC.KeepAlive(resource)
+                            return ()
+                        }
+
+                    work |> Async.RunSynchronously |> ignore
+                    WeakReference(resource))
+                  |> LeakUtils.run
+
+            Assert.IsTrue(resource.IsAlive)
+
+            GC.Collect()
+            GC.WaitForPendingFinalizers()
+            GC.Collect()
+            GC.WaitForPendingFinalizers()
+            GC.Collect()
+
+            Assert.IsFalse(resource.IsAlive)
+        
+        // The leak hangs on a race condition which is really hard to trigger in F# 3.0, hence the 100000 runs...
+        for _ in 1..100 do tryToLeak()
+           
     [<Test>]
     member this.``AwaitWaitHandle.DisposedWaitHandle2``() = 
         let wh = new System.Threading.ManualResetEvent(false)
@@ -262,7 +307,10 @@ type AsyncModule() =
                 :? InvalidOperationException as e when e.Message = "EXPECTED" -> return ()
             }
         Async.RunSynchronously(test)
-
+        
+#if FSHARP_CORE_NETCORE_PORTABLE
+// nothing
+#else
     [<Test>]
     member this.``FromContinuationsCanTailCallCurrentThread``() = 
         let cnt = ref 0
@@ -283,6 +331,7 @@ type AsyncModule() =
         f 5000 |> Async.StartImmediate 
         Assert.AreEqual(origTid, !finalTid)
         Assert.AreEqual(5000, !cnt)
+#endif
 
     [<Test>]
     member this.``AwaitWaitHandle With Cancellation``() = 
@@ -342,6 +391,9 @@ type AsyncModule() =
 #if FSHARP_CORE_PORTABLE
 // nothing
 #else
+#if FSHARP_CORE_NETCORE_PORTABLE
+// nothing
+#else
     [<Test>]
     member this.``SleepContinuations``() = 
         let okCount = ref 0
@@ -369,6 +421,7 @@ type AsyncModule() =
         Assert.AreEqual(0, !okCount)
         Assert.AreEqual(0, !errCount)
 #endif
+#endif
 
 #if FSHARP_CORE_PORTABLE
 // nothing
@@ -376,8 +429,8 @@ type AsyncModule() =
 #if FSHARP_CORE_2_0
 // nothing
 #else
-#if SILVERLIGHT
-// nothing
+#if FSHARP_CORE_NETCORE_PORTABLE
+//nothing
 #else
 // we are on the desktop
     member this.RunExeAndExpectOutput(exeName, expected:string) =

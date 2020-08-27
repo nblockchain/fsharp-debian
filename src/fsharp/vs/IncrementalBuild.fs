@@ -1,3 +1,4 @@
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 namespace Microsoft.FSharp.Compiler
 #nowarn "57"
@@ -12,8 +13,10 @@ open System
 
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Range
-open Microsoft.FSharp.Compiler.Build
+open Microsoft.FSharp.Compiler.CompileOps
+open Microsoft.FSharp.Compiler.CompileOptions
 open Microsoft.FSharp.Compiler.Tastops
+open Microsoft.FSharp.Compiler.TcGlobals
 open Microsoft.FSharp.Compiler.ErrorLogger
 open Microsoft.FSharp.Compiler.Lib
 open Microsoft.FSharp.Compiler.AbstractIL
@@ -70,7 +73,7 @@ module internal IncrementalBuild =
 
         /// VectorInput (uniqueRuleId, outputName, initialAccumulator, inputs, taskFunction)
         ///
-        /// A build rule representing the scan-left combinining a single scalar accumulator input with a vector of inputs
+        /// A build rule representing the scan-left combining a single scalar accumulator input with a vector of inputs
         | VectorScanLeft of Id * string * ScalarBuildRule * VectorBuildRule * (obj->obj->Eventually<obj>)
 
         /// VectorMap (uniqueRuleId, outputName, inputs, taskFunction)
@@ -226,9 +229,9 @@ module internal IncrementalBuild =
         | Available of obj * DateTime * InputSignature
         /// Get the available result. Throw an exception if not available.
         static member GetAvailable = function Available(o,_,_) ->o  | _->failwith "No available result"
-        /// Get the time stamp if available. Otheriwse MaxValue.        
+        /// Get the time stamp if available. Otherwise MaxValue.        
         static member Timestamp = function Available(_,ts,_) ->ts | InProgress(_,ts) -> ts | _-> DateTime.MaxValue
-        /// Get the time stamp if available. Otheriwse MaxValue.        
+        /// Get the time stamp if available. Otherwise MaxValue.        
         static member InputSignature = function Available(_,_,signature) ->signature | _-> UnevaluatedInput
         
         member x.ResultIsInProgress =  match x with | InProgress _ -> true | _ -> false
@@ -290,9 +293,6 @@ module internal IncrementalBuild =
                             
     /// Action timing
     module Time =     
-#if SILVERLIGHT
-        let Action<'T> taskname slot func : 'T =  func()
-#else
         let sw = new Stopwatch()
         let Action<'T> taskname slot func : 'T= 
             if Trace.ShouldLog("IncrementalBuildWorkUnits") then 
@@ -324,7 +324,6 @@ module internal IncrementalBuild =
                                                             spanGC.[min 2 maxGen])
                 result
             else func()            
-#endif
         
     /// Result of a particular action over the bound build tree
     [<NoEquality; NoComparison>]
@@ -975,7 +974,7 @@ module internal IncrementalBuild =
         member b.DeclareVectorOutput(name,output:Vector<'t>)=
             let output:IVector = output:?>IVector
             outputs <- NamedVectorOutput(name,output) :: outputs
-        /// Set the conrete inputs for this build
+        /// Set the concrete inputs for this build
         member b.GetInitialPartialBuild(vectorinputs,scalarinputs) =
             ToBound(ToBuild outputs,vectorinputs,scalarinputs)   
 
@@ -1017,7 +1016,7 @@ type ErrorInfo = {
 
     /// Decompose a warning or error into parts: position, severity, message
     static member internal CreateFromException(exn,warn,trim:bool,fallbackRange:range) = 
-        let m = match RangeOfError exn with Some m -> m | None -> fallbackRange 
+        let m = match GetRangeOfError exn with Some m -> m | None -> fallbackRange 
         let (s1:int),(s2:int) = Pos.toVS m.Start
         let (s3:int),(s4:int) = Pos.toVS (if trim then m.Start else m.End)
         let msg = bufs (fun buf -> OutputPhasedError buf exn false)
@@ -1084,11 +1083,11 @@ module internal IncrementalFSharpBuild =
     open Internal.Utilities.Collections
 
     open IncrementalBuild
-    open Microsoft.FSharp.Compiler.Build
-    open Microsoft.FSharp.Compiler.Fscopts
+    open Microsoft.FSharp.Compiler.CompileOps
+    open Microsoft.FSharp.Compiler.CompileOptions
     open Microsoft.FSharp.Compiler.Ast
     open Microsoft.FSharp.Compiler.ErrorLogger
-    open Microsoft.FSharp.Compiler.Env
+    open Microsoft.FSharp.Compiler.TcGlobals
     open Microsoft.FSharp.Compiler.TypeChecker
     open Microsoft.FSharp.Compiler.Tast 
     open Microsoft.FSharp.Compiler.Range
@@ -1136,7 +1135,7 @@ module internal IncrementalFSharpBuild =
     type IBEvent =
         | IBEParsed of string // filename
         | IBETypechecked of string // filename
-        | IBENuked
+        | IBEDeleted
 
     let IncrementalBuilderEventsMRU = new FixedLengthMRU<IBEvent>()  
     let GetMostRecentIncrementalBuildEvents(n) = IncrementalBuilderEventsMRU.MostRecentList(n)
@@ -1168,13 +1167,9 @@ module internal IncrementalFSharpBuild =
     /// to enable other requests to be serviced. Yielding means returning a continuation function
     /// (via an Eventually<_> value of case NotYetDone) that can be called as the next piece of work. 
     let maxTimeShareMilliseconds = 
-#if SILVERLIGHT
-        50L
-#else
         match System.Environment.GetEnvironmentVariable("mFSharp_MaxTimeShare") with 
         | null | "" -> 50L
         | s -> int64 s
-#endif
       
     /// Global service state
     type FrameworkImportsCacheKey = (*resolvedpath*)string list * string * (*ClrRoot*)string list* (*fsharpBinaries*)string
@@ -1193,9 +1188,9 @@ module internal IncrementalFSharpBuild =
             //
             // The data elements in this key are very important. There should be nothing else in the TcConfig that logically affects
             // the import of a set of framework DLLs into F# CCUs. That is, the F# CCUs that result from a set of DLLs (including
-            // FSharp.Core.dll andb mscorlib.dll) must be logically invariant of all the other compiler configuration parameters.
+            // FSharp.Core.dll and mscorlib.dll) must be logically invariant of all the other compiler configuration parameters.
             let key = (frameworkDLLsKey,
-                       tcConfig.mscorlibAssemblyName, 
+                       tcConfig.primaryAssembly.Name, 
                        tcConfig.ClrRoot,
                        tcConfig.fsharpBinariesDir)
             match frameworkTcImportsCache.TryGet key with 
@@ -1216,11 +1211,11 @@ module internal IncrementalFSharpBuild =
         let errorsSeenInScope = new ResizeArray<_>()
             
         let warningOrError warn exn = 
-            let warn = warn && not (ReportWarningAsError tcConfig.globalWarnLevel tcConfig.specificWarnOff tcConfig.specificWarnOn tcConfig.specificWarnAsError tcConfig.specificWarnAsWarn tcConfig.globalWarnAsError exn)                
+            let warn = warn && not (ReportWarningAsError (tcConfig.globalWarnLevel, tcConfig.specificWarnOff, tcConfig.specificWarnOn, tcConfig.specificWarnAsError, tcConfig.specificWarnAsWarn, tcConfig.globalWarnAsError) exn)                
             if not warn then
                 errorsSeenInScope.Add(exn)
                 errorLogger.ErrorSink(exn)                
-            else if ReportWarning tcConfig.globalWarnLevel tcConfig.specificWarnOff tcConfig.specificWarnOn exn then 
+            else if ReportWarning (tcConfig.globalWarnLevel, tcConfig.specificWarnOff, tcConfig.specificWarnOn) exn then 
                 warningsSeenInScope.Add(exn)
                 errorLogger.WarnSink(exn)                    
 
@@ -1356,7 +1351,7 @@ module internal IncrementalFSharpBuild =
             
             try  
                 IncrementalBuilderEventsMRU.Add(IBEParsed filename)
-                let result = ParseOneInputFile(tcConfig,lexResourceManager,[],filename ,isLastCompiland,errorLogger,(*retryLocked*)true)
+                let result = ParseOneInputFile(tcConfig,lexResourceManager, [], filename ,isLastCompiland,errorLogger,(*retryLocked*)true)
                 Trace.PrintLine("FSharpBackgroundBuildVerbose", fun _ -> sprintf "done.")
                 result,sourceRange,filename,errorLogger.GetErrors ()
             with exn -> 
@@ -1412,7 +1407,7 @@ module internal IncrementalFSharpBuild =
                     disposeCleanupItem()
 
                     Trace.PrintLine("FSharpBackgroundBuild", fun _ -> "About to (re)create tcImports")
-                    let tcImports = TcImports.BuildNonFrameworkTcImports(None,tcConfigP,tcGlobals,frameworkTcImports,nonFrameworkResolutions,unresolvedReferences)  
+                    let tcImports = TcImports.BuildNonFrameworkTcImports(tcConfigP,tcGlobals,frameworkTcImports,nonFrameworkResolutions,unresolvedReferences)  
 #if EXTENSIONTYPING
                     for ccu in tcImports.GetCcusExcludingBase() do
                         // When a CCU reports an invalidation, merge them together and just report a 
@@ -1434,8 +1429,8 @@ module internal IncrementalFSharpBuild =
                     errorLogger.Warning(e)
                     frameworkTcImports           
 
-            let tcEnv0 = GetInitialTypecheckerEnv (Some assemblyName) rangeStartup tcConfig tcImports tcGlobals
-            let tcState0 = TypecheckInitialState (rangeStartup,assemblyName,tcConfig,tcGlobals,tcImports,niceNameGen,tcEnv0)
+            let tcEnv0 = GetInitialTcEnv (Some assemblyName, rangeStartup, tcConfig, tcImports, tcGlobals)
+            let tcState0 = GetInitialTcState (rangeStartup, assemblyName, tcConfig, tcGlobals, tcImports, niceNameGen, tcEnv0)
             let tcAcc = 
                 { tcGlobals=tcGlobals
                   tcImports=tcImports
@@ -1463,11 +1458,11 @@ module internal IncrementalFSharpBuild =
                         Trace.PrintLine("FSharpBackgroundBuild", fun _ -> sprintf "Typechecking %s..." filename)                
                         beforeTypeCheckFile.Trigger filename
                         let! (tcEnv,topAttribs,typedImplFiles),tcState = 
-                            TypecheckOneInputEventually ((fun () -> errorLogger.ErrorCount > 0),
+                            TypeCheckOneInputEventually ((fun () -> errorLogger.ErrorCount > 0),
                                                          tcConfig,tcAcc.tcImports,
                                                          tcAcc.tcGlobals,
                                                          None,
-                                                         Nameres.TcResultsSink.NoSink,
+                                                         NameResolution.TcResultsSink.NoSink,
                                                          tcAcc.tcState,input)
                         
                         /// Only keep the typed interface files when doing a "full" build for fsc.exe, otherwise just throw them away
@@ -1512,8 +1507,8 @@ module internal IncrementalFSharpBuild =
             Trace.PrintLine("FSharpBackgroundBuildVerbose", fun _ -> sprintf "Finalizing Type Check" )
             let finalAcc = tcStates.[tcStates.Length-1]
             let results = tcStates |> List.ofArray |> List.map (fun acc-> acc.tcEnv, (Option.get acc.topAttribs), acc.typedImplFiles)
-            let (tcEnvAtEndOfLastFile,topAttrs,mimpls),tcState = TypecheckMultipleInputsFinish (results,finalAcc.tcState)
-            let tcState,tassembly = TypecheckClosedInputSetFinish (mimpls,tcState)
+            let (tcEnvAtEndOfLastFile,topAttrs,mimpls),tcState = TypeCheckMultipleInputsFinish (results,finalAcc.tcState)
+            let tcState,tassembly = TypeCheckClosedInputSetFinish (mimpls,tcState)
             tcState, topAttrs, tassembly, tcEnvAtEndOfLastFile, finalAcc.tcImports, finalAcc.tcGlobals, finalAcc.tcConfig
 
         // END OF BUILD TASK FUNCTIONS
@@ -1549,7 +1544,7 @@ module internal IncrementalFSharpBuild =
         let fileDependencies = 
             let unresolvedFileDependencies = 
                 unresolvedReferences
-                |> List.map (function Microsoft.FSharp.Compiler.Build.UnresolvedAssemblyReference(referenceText, _) -> referenceText)
+                |> List.map (function Microsoft.FSharp.Compiler.CompileOps.UnresolvedAssemblyReference(referenceText, _) -> referenceText)
                 |> List.filter(fun referenceText->not(Path.IsInvalidPath(referenceText))) // Exclude things that are definitely not a file name
                 |> List.map(fun referenceText -> if FileSystem.IsPathRootedShim(referenceText) then referenceText else System.IO.Path.Combine(projectDirectory,referenceText))
                 |> List.map (fun file->{Filename =  file; ExistenceDependency = true; IncrementalBuildDependency = true })
@@ -1568,11 +1563,11 @@ module internal IncrementalFSharpBuild =
               )
 #endif        
 
-        do IncrementalBuilderEventsMRU.Add(IBENuked)
+        do IncrementalBuilderEventsMRU.Add(IBEDeleted)
         let buildInputs = ["FileNames", sourceFiles.Length, sourceFiles |> List.map box
                            "ReferencedAssemblies", nonFrameworkAssemblyInputs.Length, nonFrameworkAssemblyInputs |> List.map box ]
 
-        // This is the intial representation of progress through the build, i.e. we have made no progress.
+        // This is the initial representation of progress through the build, i.e. we have made no progress.
         let mutable partialBuild = buildDescription.GetInitialPartialBuild (buildInputs, [])
 
         member this.IncrementUsageCount() = 
@@ -1625,7 +1620,7 @@ module internal IncrementalFSharpBuild =
         member __.TypeCheck() = 
             let newPartialBuild = IncrementalBuild.Eval "FinalizeTypeCheck" partialBuild
             partialBuild <- newPartialBuild
-            match GetScalarResult<Build.TcState * TypeChecker.TopAttribs * Tast.TypedAssembly * TypeChecker.TcEnv * Build.TcImports * Env.TcGlobals * Build.TcConfig>("FinalizeTypeCheck",partialBuild) with
+            match GetScalarResult<TcState * TypeChecker.TopAttribs * Tast.TypedAssembly * TypeChecker.TcEnv * TcImports * TcGlobals * TcConfig>("FinalizeTypeCheck",partialBuild) with
             | Some((tcState,topAttribs,typedAssembly,tcEnv,tcImports,tcGlobals,tcConfig),_) -> tcState,topAttribs,typedAssembly,tcEnv,tcImports,tcGlobals,tcConfig
             | None -> failwith "Build was not evaluated."
         
@@ -1674,8 +1669,8 @@ module internal IncrementalFSharpBuild =
             /// Create a type-check configuration
             let tcConfigB = 
                 let defaultFSharpBinariesDir = Internal.Utilities.FSharpEnvironment.BinFolderOfDefaultFSharpCompiler(None).Value
-    
-                // see also fsc.fs:runFromCommandLineToImportingAssemblies(), as there are many similarities to where the PS creates a tcConfigB
+                    
+                // see also fsc.fs:ProcessCommandLineArgsAndImportAssemblies(), as there are many similarities to where the PS creates a tcConfigB
                 let tcConfigB = 
                     TcConfigBuilder.CreateNew(defaultFSharpBinariesDir, implicitIncludeDir=projectDirectory, 
                                               optimizeForMemory=true, isInteractive=false, isInvalidationSupported=true) 
@@ -1686,13 +1681,14 @@ module internal IncrementalFSharpBuild =
                     <- if useScriptResolutionRules 
                         then MSBuildResolver.DesigntimeLike  
                         else MSBuildResolver.CompileTimeLike
+                
+                tcConfigB.conditionalCompilationDefines <- 
+                    let define = if useScriptResolutionRules then "INTERACTIVE" else "COMPILED"
+                    define::tcConfigB.conditionalCompilationDefines
 
                 // Apply command-line arguments.
                 try
-                    ParseCompilerOptions
-                        (fun _sourceOrDll -> () )
-                        (Fscopts.GetCoreServiceCompilerOptions tcConfigB)
-                        commandLineArgs             
+                    ParseCompilerOptions ((fun _sourceOrDll -> () ), CompileOptions.GetCoreServiceCompilerOptions tcConfigB, commandLineArgs)
                 with e -> errorRecovery e range0
 
 
@@ -1701,9 +1697,9 @@ module internal IncrementalFSharpBuild =
         
                 if tcConfigB.framework then
                     // ~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-
-                    // If you see a failure here running unittests consider whether it it caused by 
+                    // If you see a failure here running unittests consider whether it caused by 
                     // a mismatched version of Microsoft.Build.Framework. Run unittests under a debugger. If
-                    // you see an old version of Microsoft.Build.*.dll getting loaded it it is likely caused by
+                    // you see an old version of Microsoft.Build.*.dll getting loaded, it is likely caused by
                     // using an old ITask or ITaskItem from some tasks assembly.
                     // I solved this problem by adding a Unittests.config.dll which has a binding redirect to 
                     // the current (right now, 4.0.0.0) version of the tasks assembly.
@@ -1739,7 +1735,7 @@ module internal IncrementalFSharpBuild =
         
             // Sink internal errors and warnings.
             // Q: Why is it ok to ignore these?
-            // jomof: These are errors from the background build of files the user doesn't see. Squiggles will appear in the editted file via the foreground parse\typecheck
+            // These are errors from the background build of files the user doesn't see. Squiggles will appear in the editted file via the foreground parse\typecheck
             let warnSink (exn:PhasedError) = Trace.PrintLine("IncrementalBuild", (exn.ToString >> sprintf "Background warning: %s"))
             let errorSink (exn:PhasedError) = Trace.PrintLine("IncrementalBuild", (exn.ToString >> sprintf "Background error: %s"))
 

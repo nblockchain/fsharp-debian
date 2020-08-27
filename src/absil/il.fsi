@@ -1,13 +1,4 @@
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 /// The "unlinked" view of .NET metadata and code.  Central to 
 ///  to Abstract IL library
@@ -29,7 +20,12 @@ type ILList<'T> = ThreeList<'T>
 //#if ABSIL_USES_LIST_FOR_ILLIST
 type ILList<'T> = 'T list
 //#endif
- 
+
+type PrimaryAssembly = 
+    | Mscorlib
+    | DotNetCore
+
+    member Name: string
 
 // ====================================================================
 // .NET binaries can be converted to the data structures below by using 
@@ -52,7 +48,7 @@ type ILList<'T> = 'T list
 //      format used for code.  
 //
 //   2. The "typ_XYZ", "tspec_XYZ" and "mspec_XYZ" values which 
-//      can be used to reference types in the "mscorlib" assembly.
+//      can be used to reference types in the "primary assembly (either System.Runtime or mscorlib)" assembly.
 //
 //   3. The "rescopeXYZ" functions which can be used to lift a piece of
 //      metadata from one assembly and transform it to a piece of metadata
@@ -135,7 +131,7 @@ type ILAssemblyRef =
     member Hash: byte[] option;
     member PublicKey: PublicKey option;
     /// CLI says this indicates if the assembly can be retargeted (at runtime) to be from a different publisher. 
-    member Retargetable: bool;  
+    member Retargetable: bool;
     member Version: ILVersionInfo option;
     member Locale: string option
     interface System.IComparable
@@ -270,7 +266,7 @@ type ILArrayBounds = ILArrayBound * ILArrayBound
 
 [<StructuralEquality; StructuralComparison>]
 type ILArrayShape =
-    | ILArrayShape of ILArrayBounds list (* lobound/size pairs *)
+    | ILArrayShape of ILArrayBounds list // lobound/size pairs 
     member Rank : int
     /// Bounds for a single dimensional, zero based array 
     static member SingleDimensional: ILArrayShape
@@ -304,7 +300,7 @@ type ILTypeRef =
     member BasicQualifiedName : string
     member QualifiedName: string
 #if EXTENSIONTYPING
-    member QualifiedNameWithNoShortMscorlib: string
+    member QualifiedNameWithNoShortPrimaryAssembly: string
 #endif
     interface System.IComparable
     
@@ -365,7 +361,7 @@ and
     member GenericArgs : ILGenericArgs
     member IsTyvar : bool
     member BasicQualifiedName : string
-    member QualifiedNameWithNoShortMscorlib : string
+    member QualifiedNameWithNoShortPrimaryAssembly : string
 
 and [<StructuralEquality; StructuralComparison>]
     ILCallingSignature =  
@@ -592,8 +588,8 @@ type ILInstr =
     // Control transfer 
     | I_br    of  ILCodeLabel
     | I_jmp   of ILMethodSpec
-    | I_brcmp of ILComparisonInstr * ILCodeLabel * ILCodeLabel (* second label is fall-through *)
-    | I_switch    of (ILCodeLabel list * ILCodeLabel) (* last label is fallthrough *)
+    | I_brcmp of ILComparisonInstr * ILCodeLabel * ILCodeLabel // second label is fall-through 
+    | I_switch    of (ILCodeLabel list * ILCodeLabel) // last label is fallthrough 
     | I_ret 
 
      // Method call 
@@ -974,7 +970,8 @@ type ILNativeType =
 [<NoComparison; NoEquality>]
 type ILLocal = 
     { Type: ILType;
-      IsPinned: bool }
+      IsPinned: bool;
+      DebugInfo: (string * int * int) option }
      
 
 type ILLocals = ILList<ILLocal>
@@ -1029,10 +1026,7 @@ type ILAttributeNamedArg = string * ILType * bool * ILAttribElem
 /// Custom attributes.  See 'decodeILAttribData' for a helper to parse the byte[] 
 /// to ILAttribElem's as best as possible.  
 type ILAttribute =
-    { Method: ILMethodSpec;  
-#if SILVERLIGHT
-      Arguments: ILAttribElem list * ILAttributeNamedArg list
-#endif
+    { Method: ILMethodSpec;
       Data: byte[] }
 
 [<NoEquality; NoComparison; Sealed>]
@@ -1396,7 +1390,7 @@ type ILTypeDefAccess =
 // really, absolutely a value type until you bind the 
 // super class and test it for type equality against System.ValueType.  
 // However, this is unbearably annoying, as it means you 
-// have to load "mscorlib" and perform bind operations 
+// have to load "primary runtime assembly (System.Runtime or mscorlib)" and perform bind operations 
 // in order to be able to determine some quite simple 
 // things.  So we approximate by simply looking at the name
 // of the superclass when loading.
@@ -1662,6 +1656,30 @@ val isTypeNameForGlobalFunctions: string -> bool
 
 val ungenericizeTypeName: string -> string (* e.g. List`1 --> List *)
 
+/// Represents the capabilities of target framework profile.
+/// Different profiles may omit some types or contain them in different assemblies
+type IPrimaryAssemblyTraits = 
+    
+    abstract TypedReferenceTypeScopeRef : ILScopeRef option
+    abstract RuntimeArgumentHandleTypeScopeRef : ILScopeRef option
+    abstract SerializationInfoTypeScopeRef : ILScopeRef option
+    abstract SecurityPermissionAttributeTypeScopeRef : ILScopeRef option    
+    abstract IDispatchConstantAttributeScopeRef : ILScopeRef option
+    abstract IUnknownConstantAttributeScopeRef : ILScopeRef option
+    abstract ArgIteratorTypeScopeRef : ILScopeRef option
+    abstract MarshalByRefObjectScopeRef : ILScopeRef option
+    abstract ThreadStaticAttributeScopeRef : ILScopeRef option
+    abstract SpecialNameAttributeScopeRef : ILScopeRef option
+    abstract ContextStaticAttributeScopeRef : ILScopeRef option
+    abstract NonSerializedAttributeScopeRef : ILScopeRef option
+
+    abstract SystemRuntimeInteropServicesScopeRef   : Lazy<ILScopeRef option>
+    abstract SystemLinqExpressionsScopeRef          : Lazy<ILScopeRef>
+    abstract SystemCollectionsScopeRef              : Lazy<ILScopeRef>
+    abstract SystemReflectionScopeRef               : Lazy<ILScopeRef>
+    abstract SystemDiagnosticsDebugScopeRef         : Lazy<ILScopeRef>
+    abstract ScopeRef : ILScopeRef
+
 // ====================================================================
 // PART 2
 // 
@@ -1670,16 +1688,15 @@ val ungenericizeTypeName: string -> string (* e.g. List`1 --> List *)
 // e.g. by filling in all appropriate record fields.
 // ==================================================================== *)
 
-/// A table of common references to items in mscorlib. Version-neutral references 
-/// can be generated using ecmaILGlobals.  If you have already loaded a particular 
-/// version of mscorlib you should reference items via an ILGlobals for that particular 
-/// version of mscorlib built using mkILGlobals. 
+/// A table of common references to items in primary assebly (System.Runtime or mscorlib).
+/// If you have already loaded a particular version of system runtime assembly you should reference items via an ILGlobals for that particular 
+/// version of system runtime assembly built using mkILGlobals. 
 [<NoEquality; NoComparison>]
 type ILGlobals = 
-    { mscorlibScopeRef: ILScopeRef
-      mscorlibAssemblyName: string
+    { 
+      traits : IPrimaryAssemblyTraits
+      primaryAssemblyName: string
       noDebugData: bool
-      generateDebugBrowsableData: bool
       tref_Object: ILTypeRef
       tspec_Object: ILTypeSpec
       typ_Object: ILType
@@ -1691,13 +1708,13 @@ type ILGlobals =
       typ_IComparable: ILType
       tref_Type: ILTypeRef
       typ_Type: ILType
-      typ_Missing: ILType
+      typ_Missing: Lazy<ILType>
       typ_Activator: ILType
       typ_Delegate: ILType
       typ_ValueType: ILType
       typ_Enum: ILType
-      tspec_TypedReference: ILTypeSpec
-      typ_TypedReference: ILType
+      tspec_TypedReference: ILTypeSpec option
+      typ_TypedReference: ILType option
       typ_MulticastDelegate: ILType
       typ_Array: ILType
       tspec_Int64: ILTypeSpec
@@ -1728,7 +1745,7 @@ type ILGlobals =
       typ_char: ILType
       typ_IntPtr: ILType
       typ_UIntPtr: ILType
-      typ_RuntimeArgumentHandle: ILType
+      typ_RuntimeArgumentHandle: ILType option
       typ_RuntimeTypeHandle: ILType
       typ_RuntimeMethodHandle: ILType
       typ_RuntimeFieldHandle: ILType
@@ -1744,18 +1761,33 @@ type ILGlobals =
       typ_Double: ILType
       typ_Bool: ILType
       typ_Char: ILType
-      typ_SerializationInfo: ILType
+      typ_SerializationInfo: ILType option
       typ_StreamingContext: ILType
-      tref_SecurityPermissionAttribute : ILTypeRef
+      tref_SecurityPermissionAttribute : ILTypeRef option
       tspec_Exception: ILTypeSpec
       typ_Exception: ILType 
       mutable generatedAttribsCache: ILAttribute list 
       mutable debuggerBrowsableNeverAttributeCache : ILAttribute option 
       mutable debuggerTypeProxyAttributeCache : ILAttribute option }
 
-/// Build the table of commonly used references given a ILScopeRef for mscorlib. 
-val mkILGlobals : mscorlibScopeRef:ILScopeRef -> mscorlibAssemblyNameOpt:string option -> noDebugData:bool * generateDebugBrowsableData:bool -> ILGlobals
+      with
+      member mkDebuggableAttribute: bool (* debug tracking *) * bool (* disable JIT optimizations *) -> ILAttribute
+      /// Some commonly used custom attibutes 
+      member mkDebuggableAttributeV2               : bool (* jitTracking *) * bool (* ignoreSymbolStoreSequencePoints *) * bool (* disable JIT optimizations *) * bool (* enable EnC *) -> ILAttribute
+      member mkCompilerGeneratedAttribute          : unit -> ILAttribute
+      member mkDebuggerNonUserCodeAttribute        : unit -> ILAttribute
+      member mkDebuggerStepThroughAttribute        : unit -> ILAttribute
+      member mkDebuggerHiddenAttribute             : unit -> ILAttribute
+      member mkDebuggerDisplayAttribute            : string -> ILAttribute
+      member mkDebuggerTypeProxyAttribute          : ILType -> ILAttribute
+      member mkDebuggerBrowsableNeverAttribute     : unit -> ILAttribute
 
+/// Build the table of commonly used references given a ILScopeRef for system runtime assembly. 
+val mkILGlobals : IPrimaryAssemblyTraits -> string option -> bool -> ILGlobals
+
+val mkMscorlibBasedTraits : ILScopeRef -> IPrimaryAssemblyTraits
+
+val EcmaILGlobals : ILGlobals
 
 /// When writing a binary the fake "toplevel" type definition (called <Module>)
 /// must come first. This function puts it first, and creates it in the returned list as an empty typedef if it 
@@ -1765,11 +1797,9 @@ val destTypeDefsWithGlobalFunctionsFirst: ILGlobals -> ILTypeDefs -> ILTypeDef l
 /// Note: not all custom attribute data can be decoded without binding types.  In particular 
 /// enums must be bound in order to discover the size of the underlying integer. 
 /// The following assumes enums have size int32. 
-/// It also does not completely decode System.Type attributes 
 val decodeILAttribData: 
     ILGlobals -> 
     ILAttribute -> 
-    ILScopeRef option ->
       ILAttribElem list *  (* fixed args *)
       ILAttributeNamedArg list (* named args: values and flags indicating if they are fields or properties *) 
 
@@ -1924,7 +1954,7 @@ val mkILParam: string option * ILType -> ILParameter
 val mkILParamAnon: ILType -> ILParameter
 val mkILParamNamed: string * ILType -> ILParameter
 val mkILReturn: ILType -> ILReturn
-val mkILLocal: ILType -> ILLocal
+val mkILLocal: ILType -> (string * int * int) option -> ILLocal
 val mkILLocals : ILLocal list -> ILLocals
 val emptyILLocals : ILLocals
 
@@ -2172,28 +2202,11 @@ val instILType: ILGenericArgs -> ILType -> ILType
 
 /// This is a 'vendor neutral' way of referencing mscorlib. 
 val ecmaPublicKey: PublicKey
-/// This is a 'vendor neutral' way of referencing mscorlib. 
-val ecmaMscorlibScopeRef: ILScopeRef
-/// This is a 'vendor neutral' collection of references to items in mscorlib. 
-val ecmaILGlobals: ILGlobals
-
 
 /// Some commonly used methods 
 val mkInitializeArrayMethSpec: ILGlobals -> ILMethodSpec 
 
-val mkMscorlibExnNewobj: ILGlobals -> string -> ILInstr
-
-/// Some commonly used custom attibutes 
-val mkDebuggableAttribute: ILGlobals -> bool (* debug tracking *) * bool (* disable JIT optimizations *) -> ILAttribute
-val mkDebuggableAttributeV2: ILGlobals -> bool (* jitTracking *) * bool (* ignoreSymbolStoreSequencePoints *) * bool (* disable JIT optimizations *) * bool (* enable EnC *) -> ILAttribute
-
-val mkCompilerGeneratedAttribute          : ILGlobals -> ILAttribute
-val mkDebuggerNonUserCodeAttribute        : ILGlobals -> ILAttribute
-val mkDebuggerStepThroughAttribute        : ILGlobals -> ILAttribute
-val mkDebuggerHiddenAttribute             : ILGlobals -> ILAttribute
-val mkDebuggerDisplayAttribute            : ILGlobals -> string -> ILAttribute
-val mkDebuggerTypeProxyAttribute          : ILGlobals -> ILType -> ILAttribute
-val mkDebuggerBrowsableNeverAttribute     : ILGlobals -> ILAttribute
+val mkPrimaryAssemblyExnNewobj: ILGlobals -> string -> ILInstr
 
 val addMethodGeneratedAttrs : ILGlobals -> ILMethodDef -> ILMethodDef
 val addPropertyGeneratedAttrs : ILGlobals -> ILPropertyDef -> ILPropertyDef
@@ -2203,23 +2216,23 @@ val addPropertyNeverAttrs : ILGlobals -> ILPropertyDef -> ILPropertyDef
 val addFieldNeverAttrs : ILGlobals -> ILFieldDef -> ILFieldDef
 
 /// Discriminating different important built-in types
-val isILObjectTy: ILGlobals -> ILType -> bool
-val isILStringTy: ILGlobals -> ILType -> bool
-val isILSByteTy: ILGlobals -> ILType -> bool
-val isILByteTy: ILGlobals -> ILType -> bool
-val isILInt16Ty: ILGlobals -> ILType -> bool
-val isILUInt16Ty: ILGlobals -> ILType -> bool
-val isILInt32Ty: ILGlobals -> ILType -> bool
-val isILUInt32Ty: ILGlobals -> ILType -> bool
-val isILInt64Ty: ILGlobals -> ILType -> bool
-val isILUInt64Ty: ILGlobals -> ILType -> bool
-val isILIntPtrTy: ILGlobals -> ILType -> bool
-val isILUIntPtrTy: ILGlobals -> ILType -> bool
-val isILBoolTy: ILGlobals -> ILType -> bool
-val isILCharTy: ILGlobals -> ILType -> bool
-val isILTypedReferenceTy: ILGlobals -> ILType -> bool
-val isILDoubleTy: ILGlobals -> ILType -> bool
-val isILSingleTy: ILGlobals -> ILType -> bool
+val isILObjectTy: ILType -> bool
+val isILStringTy: ILType -> bool
+val isILSByteTy: ILType -> bool
+val isILByteTy: ILType -> bool
+val isILInt16Ty: ILType -> bool
+val isILUInt16Ty: ILType -> bool
+val isILInt32Ty: ILType -> bool
+val isILUInt32Ty: ILType -> bool
+val isILInt64Ty: ILType -> bool
+val isILUInt64Ty: ILType -> bool
+val isILIntPtrTy: ILType -> bool
+val isILUIntPtrTy: ILType -> bool
+val isILBoolTy: ILType -> bool
+val isILCharTy: ILType -> bool
+val isILTypedReferenceTy: ILType -> bool
+val isILDoubleTy: ILType -> bool
+val isILSingleTy: ILType -> bool
 
 /// Get a public key token from a public key.
 val sha1HashBytes : byte[] -> byte[] (* SHA1 hash *)

@@ -1,5 +1,4 @@
-// Copyright (c) Microsoft Corporation. Apache 2.0 License.
-
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 namespace Microsoft.FSharp.Compiler.Interactive
 
@@ -132,7 +131,7 @@ module internal Utils =
 type internal Cursor =
     static member ResetTo(top,left) = 
         Utils.guard(fun () -> 
-           Console.CursorTop <- top;
+           Console.CursorTop <- min top (Console.BufferHeight - 1);
            Console.CursorLeft <- left)
     static member Move(inset, delta) =
         let position = Console.CursorTop * (Console.BufferWidth - inset) + (Console.CursorLeft - inset) + delta
@@ -217,6 +216,7 @@ type internal ReadLineConsole() =
             if currLeft < x.Inset then 
                 if currLeft = 0 then Console.Write (if prompt then x.Prompt2 else String(' ',x.Inset))
                 Utils.guard(fun () -> 
+                    Console.CursorTop <- min Console.CursorTop (Console.BufferHeight - 1);
                     Console.CursorLeft <- x.Inset);
 
         // The caller writes the primary prompt.  If we are reading the 2nd and subsequent lines of the
@@ -375,7 +375,7 @@ type internal ReadLineConsole() =
         let rec read() = 
             let key = Console.ReadKey true
 
-            match key.Key with
+            match (key.Key) with
             | ConsoleKey.Backspace ->  
                 backspace();
                 change() 
@@ -445,9 +445,9 @@ type internal ReadLineConsole() =
             // Control-d
             | (ConsoleModifiers.Control, '\004') ->
                 if (input.Length = 0) then
-                    raise <| new System.IO.EndOfStreamException()
+                    exit 0 //quit
                 else
-                    delete ();
+                    delete()
                     change()
             | _ ->
                 // Note: If KeyChar=0, the not a proper char, e.g. it could be part of a multi key-press character,

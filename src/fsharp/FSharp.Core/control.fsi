@@ -1,14 +1,4 @@
-
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 #if FX_NO_CANCELLATIONTOKEN_CLASSES
 namespace System
@@ -351,6 +341,9 @@ namespace Microsoft.FSharp.Control
         /// Return an asynchronous computation that will wait for the given task to complete and return
         /// its result.
         static member AwaitTask: task: Task<'T> -> Async<'T>
+        /// Return an asynchronous computation that will wait for the given task to complete and return
+        /// its result.
+        static member AwaitTask: task: Task -> Async<unit>
 #endif            
 
         /// <summary>Creates an asynchronous computation that will sleep for the given time. This is scheduled
@@ -382,7 +375,7 @@ namespace Microsoft.FSharp.Control
         static member FromBeginEnd : beginAction:(System.AsyncCallback * obj -> System.IAsyncResult) * endAction:(System.IAsyncResult -> 'T) * ?cancelAction : (unit -> unit) -> Async<'T>
 
         /// <summary>Creates an asynchronous computation in terms of a Begin/End pair of actions in 
-        /// the style used in CLI APIs. This overlaod should be used if the operation is 
+        /// the style used in CLI APIs. This overload should be used if the operation is 
         /// qualified by one argument. For example, 
         ///     <c>Async.FromBeginEnd(place,ws.BeginGetWeather,ws.EndGetWeather)</c>
         /// When the computation is run, <c>beginFunc</c> is executed, with
@@ -403,7 +396,7 @@ namespace Microsoft.FSharp.Control
         static member FromBeginEnd : arg:'Arg1 * beginAction:('Arg1 * System.AsyncCallback * obj -> System.IAsyncResult) * endAction:(System.IAsyncResult -> 'T) * ?cancelAction : (unit -> unit) -> Async<'T>
 
         /// <summary>Creates an asynchronous computation in terms of a Begin/End pair of actions in 
-        /// the style used in CLI APIs. This overlaod should be used if the operation is 
+        /// the style used in CLI APIs. This overload should be used if the operation is 
         /// qualified by two arguments. For example, 
         ///     <c>Async.FromBeginEnd(arg1,arg2,ws.BeginGetWeather,ws.EndGetWeather)</c>
         /// When the computation is run, <c>beginFunc</c> is executed, with
@@ -425,7 +418,7 @@ namespace Microsoft.FSharp.Control
         static member FromBeginEnd : arg1:'Arg1 * arg2:'Arg2 * beginAction:('Arg1 * 'Arg2 * System.AsyncCallback * obj -> System.IAsyncResult) * endAction:(System.IAsyncResult -> 'T) * ?cancelAction : (unit -> unit) -> Async<'T>
 
         /// <summary>Creates an asynchronous computation in terms of a Begin/End pair of actions in 
-        /// the style used in CLI APIs. This overlaod should be used if the operation is 
+        /// the style used in CLI APIs. This overload should be used if the operation is 
         /// qualified by three arguments. For example, 
         ///     <c>Async.FromBeginEnd(arg1,arg2,arg3,ws.BeginGetWeather,ws.EndGetWeather)</c>
         /// When the computation is run, <c>beginFunc</c> is executed, with
@@ -636,7 +629,7 @@ namespace Microsoft.FSharp.Control
         /// <param name="computation">The input computation.</param>
         /// <param name="compensation">The action to be run after <c>computation</c> completes or raises an
         /// exception (including cancellation).</param>
-        /// <returns>An asynchronous computation that executes computation and compensation aftewards or
+        /// <returns>An asynchronous computation that executes computation and compensation afterwards or
         /// when an exception is raised.</returns>
         member TryFinally : computation:Async<'T> * compensation:(unit -> unit) -> Async<'T>
 
@@ -733,6 +726,17 @@ namespace Microsoft.FSharp.Control
             /// <returns>An asynchronous computation that will wait for the download of the URI.</returns>
             [<CompiledName("AsyncDownloadString")>] // give the extension member a nice, unmangled compiled name, unique within this module
             member AsyncDownloadString : address:System.Uri -> Async<string>
+            /// <summary>Returns an asynchronous computation that, when run, will wait for the download of the given URI.</summary>
+            /// <param name="address">The URI to retrieve.</param>
+            /// <returns>An asynchronous computation that will wait for the download of the URI.</returns>
+            [<CompiledName("AsyncDownloadData")>] // give the extension member a nice, unmangled compiled name, unique within this module
+            member AsyncDownloadData : address:System.Uri -> Async<byte[]>
+            /// <summary>Returns an asynchronous computation that, when run, will wait for the download of the given URI to specified file.</summary>
+            /// <param name="address">The URI to retrieve.</param>
+            /// <param name="fileName">The filename to save download to.</param>
+            /// <returns>An asynchronous computation that will wait for the download of the URI to specified file.</returns>
+            [<CompiledName("AsyncDownloadFile")>] // give the extension member a nice, unmangled compiled name, unique within this module
+            member AsyncDownloadFile : address:System.Uri * fileName: string -> Async<unit>
 #endif
 
      end
@@ -805,7 +809,7 @@ namespace Microsoft.FSharp.Control
         /// the message to be sent.</param>
         /// <param name="timeout">An optional timeout parameter (in milliseconds) to wait for a reply message.
         /// Defaults to -1 which corresponds to <c>System.Threading.Timeout.Infinite</c>.</param>
-        /// <returns>An asychronous computation that will wait for the reply from the agent.</returns>
+        /// <returns>An asynchronous computation that will wait for the reply from the agent.</returns>
         member PostAndAsyncReply : buildMessage:(AsyncReplyChannel<'Reply> -> 'Msg) * ?timeout : int -> Async<'Reply>
 
         /// <summary>Like PostAndReply, but returns None if no reply within the timeout period.</summary>

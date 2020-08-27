@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
 namespace Internal.Utilities.Debug
 
 open System
@@ -115,7 +117,7 @@ type internal Trace private() =
                                        threadInfo
                                        (Trace.ElapsedTime(start)))}
 #else
-                    Trace.LogMessage(sprintf "Exitting %s\n" 
+                    Trace.LogMessage(sprintf "Exiting %s\n" 
                                        functionName)}
 #endif
         else 

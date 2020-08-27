@@ -1,14 +1,4 @@
-//----------------------------------------------------------------------------
-//
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 namespace Internal.Utilities 
 
@@ -16,7 +6,7 @@ open System.Collections
 open System.Collections.Generic
 
 /// Iterable functional collection with O(1) append-1 time. Useful for data structures where elements get added at the
-/// end but the collection must occadionally be iterated. Iteration is slower and may allocate because 
+/// end but the collection must occasionally be iterated. Iteration is slower and may allocate because 
 /// a suffix of elements is stored in reverse order.
 ///
 /// The type doesn't support structural hashing or comparison.

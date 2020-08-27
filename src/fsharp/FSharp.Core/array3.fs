@@ -1,14 +1,4 @@
-//----------------------------------------------------------------------------
-//
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 namespace Microsoft.FSharp.Collections
 
@@ -61,11 +51,12 @@ namespace Microsoft.FSharp.Collections
 
         [<CompiledName("Initialize")>]
         let init n1 n2 n3 f = 
-            let arr = (zeroCreate n1 n2 n3 : 'T[,,]) 
+            let arr = (zeroCreate n1 n2 n3 : 'T[,,])
+            let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
             for i = 0 to n1 - 1 do 
               for j = 0 to n2 - 1 do 
                 for k = 0 to n3 - 1 do 
-                  arr.[i,j,k] <- f i j k
+                  arr.[i,j,k] <- f.Invoke(i, j, k)
             arr
 
         [<CompiledName("Iterate")>]
@@ -98,10 +89,11 @@ namespace Microsoft.FSharp.Collections
             let len1 = length1 array
             let len2 = length2 array
             let len3 = length3 array
+            let f = OptimizedClosures.FSharpFunc<_,_,_,_,_>.Adapt(f)
             for i = 0 to len1 - 1 do 
               for j = 0 to len2 - 1 do 
                 for k = 0 to len3 - 1 do 
-                  f i j k array.[i,j,k] 
+                  f.Invoke(i, j, k, array.[i,j,k]) 
 
         [<CompiledName("MapIndexed")>]
         let mapi f array =
@@ -110,10 +102,11 @@ namespace Microsoft.FSharp.Collections
             let len2 = length2 array
             let len3 = length3 array
             let res = (zeroCreate len1 len2 len3 : 'b[,,])
+            let f = OptimizedClosures.FSharpFunc<_,_,_,_,_>.Adapt(f)
             for i = 0 to len1 - 1 do 
               for j = 0 to len2 - 1 do 
                 for k = 0 to len3 - 1 do 
-                  res.[i,j,k] <- f i j k array.[i,j,k]
+                  res.[i,j,k] <- f.Invoke(i, j, k, array.[i,j,k])
             res
 
     [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -153,11 +146,12 @@ namespace Microsoft.FSharp.Collections
         [<CompiledName("Initialize")>]
         let init n1 n2 n3 n4 f = 
             let arr = (zeroCreate n1 n2 n3 n4 : 'T[,,,]) 
+            let f = OptimizedClosures.FSharpFunc<_,_,_,_,_>.Adapt(f)
             for i = 0 to n1 - 1 do 
               for j = 0 to n2 - 1 do 
                 for k = 0 to n3 - 1 do 
                   for m = 0 to n4 - 1 do 
-                    arr.[i,j,k,m] <- f i j k m
+                    arr.[i,j,k,m] <- f.Invoke(i, j, k, m)
             arr
 
 

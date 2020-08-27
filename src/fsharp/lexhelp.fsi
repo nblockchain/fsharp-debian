@@ -1,16 +1,4 @@
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
-
-// Helper functions for the F# lexer lex.mll
-
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 module internal Microsoft.FSharp.Compiler.Lexhelp
 
@@ -45,6 +33,11 @@ type lexargs =
     lightSyntaxStatus: LightSyntaxStatus;
     errorLogger: ErrorLogger}
 
+type LongUnicodeLexResult =
+    | SurrogatePair of uint16 * uint16
+    | SingleChar of uint16
+    | Invalid
+
 val resetLexbufPos : string -> UnicodeLexing.Lexbuf -> unit
 val mkLexargs : 'a * string list * LightSyntaxStatus * LexResourceManager * LexerIfdefStack * ErrorLogger -> lexargs
 val reusingLexbufForParsing : UnicodeLexing.Lexbuf -> (unit -> 'a) -> 'a 
@@ -55,6 +48,7 @@ val internal callStringFinisher : ('a -> 'b -> byte[] -> 'c) -> AbstractIL.Inter
 val internal addUnicodeString : AbstractIL.Internal.ByteBuffer -> string -> unit
 val internal addUnicodeChar : AbstractIL.Internal.ByteBuffer -> int -> unit
 val internal addByteChar : AbstractIL.Internal.ByteBuffer -> char -> unit
+val internal stringBufferAsString : byte[] -> string
 val internal stringBufferAsBytes : AbstractIL.Internal.ByteBuffer -> byte[]
 val internal stringBufferIsBytes : AbstractIL.Internal.ByteBuffer -> bool
 val internal newline : Lexing.LexBuffer<'a> -> unit
@@ -63,7 +57,7 @@ val internal digit : char -> int32
 val internal hexdigit : char -> int32
 val internal unicodeGraphShort : string -> uint16
 val internal hexGraphShort : string -> uint16
-val internal unicodeGraphLong : string -> uint16 option * uint16
+val internal unicodeGraphLong : string -> LongUnicodeLexResult
 val internal escape : char -> char
 
 exception internal ReservedKeyword of string * Range.range

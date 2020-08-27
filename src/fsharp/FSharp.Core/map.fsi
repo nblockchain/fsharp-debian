@@ -1,13 +1,4 @@
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 namespace Microsoft.FSharp.Collections
 
@@ -25,7 +16,8 @@ namespace Microsoft.FSharp.Collections
     [<CompiledName("FSharpMap`2")>]
     [<Sealed>]
     type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditionalOn>]'Value when 'Key : comparison> =
-        /// <summary>Returns a new map with the binding added to the given map.</summary>
+        /// <summary>Returns a new map with the binding added to the given map.
+        /// If a binding with the given key already exists in the input map, the existing binding is replaced by the new binding in the result map.</summary>
         /// <param name="key">The input key.</param>
         /// <returns>The resulting map.</returns>
         member Add: key:'Key * value:'Value -> Map<'Key,'Value>
@@ -76,7 +68,8 @@ namespace Microsoft.FSharp.Collections
     [<RequireQualifiedAccess>]
     module Map = 
 
-        /// <summary>Returns a new map with the binding added to the given map.</summary>
+        /// <summary>Returns a new map with the binding added to the given map.
+        /// If a binding with the given key already exists in the input map, the existing binding is replaced by the new binding in the result map.</summary>
         /// <param name="key">The input key.</param>
         /// <param name="value">The input value.</param>
         /// <param name="table">The input map.</param>

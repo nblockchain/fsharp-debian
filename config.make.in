@@ -4,139 +4,228 @@ topdir := @abs_top_srcdir@/
 builddir := @abs_top_builddir@/
 libdir := ${prefix}/lib/
 bindir := ${prefix}/bin/
-monorootdir := @MONOROOTDIR@/
-monodir := @MONODIR@/
-monolibdir2 := $(monodir)2.0/
+monobindir := @MONOBINDIR@
+monolibdir := @MONOLIBDIR@
+monogacdir := @MONOGACDIR@
 
-#This is where to find MonoTouch of MonoAndroid, for "make do-2-1"
+monogacdir20 := @MONOGACDIR20@
+
+#This is where to find MonoTouch of MonoAndroid, for "make build-monodroid"
 #
 #For now this is hardwired, it should be optionally detected by configure.ac
-monolibdir21 := @abs_top_srcdir@/dependencies/mono/2.1/
+monogacdir21 := @abs_top_srcdir@/dependencies/mono/2.1
 
+monogacdir35 := @MONOGACDIR35@
+monogacdir40 := @MONOGACDIR40@
 
-monolibdir35 := $(monodir)3.5/
-monolibdir4 := $(monodir)4.0/
+pclenabled47 := @PCLENABLED47@
+pclenabled7 := @PCLENABLED7@
+pclenabled78 := @PCLENABLED78@
+pclenabled259 := @PCLENABLED259@
+monotouchenabled := @MONOTOUCHENABLED@
+monodroidenabled := @MONODROIDENABLED@
+xamarinmacenabled := @XAMARINMACENABLED@
+
+gacdir := ${libdir}mono
+
 tooldir := $(topdir)lib/bootstrap/4.0/
 
-MONO_OPTIONS += @mono_gc_options@
-
+TargetFramework = net40
 CONFIG = release
+Configuration = Release
 DISTVERSION = 201011
+outsuffix = $(TargetFramework)
 
-VERSION_2_0 = 2.3.0.0
-VERSION_2_1 = 2.3.1.0
-VERSION_4_0 = 4.3.0.0
-TARGET_2_0 = 2.0
-TARGET_2_1 = 2.1
-TARGET_4_0 = 4.0
-DELAY_SIGN_TOKEN = b03f5f7f11d50a3a
+# Version number mappings for various versions of FSharp.Core
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-net40-)
+VERSION = 4.4.0.0
+TARGET = 4.5
+PKGINSTALL = yes
+REFASSEMPATH = .NETFramework/v4.0
+outsuffix = .
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-net20-)
+VERSION = 2.3.0.0
+TARGET = 2.0
+REFASSEMPATH = .NETFramework/v2.0
+outsuffix = $(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-monodroid-)
+VERSION = 3.98.4.0
+TARGET = $(TargetFramework)
+outsuffix = $(TargetFramework)
+endif
+
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-monotouch-)
+VERSION = 3.98.4.0
+TARGET = $(TargetFramework)
+outsuffix = $(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-xamarinwatchos-)
+VERSION = 3.98.4.0
+TARGET = $(TargetFramework)
+outsuffix = $(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-xamarinmacmobile-)
+VERSION = 3.99.4.0
+TARGET = $(TargetFramework)
+outsuffix = $(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-xamarinmacfull-)
+VERSION = 3.100.4.0
+TARGET = $(TargetFramework)
+outsuffix = $(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-portable47-)
+VERSION = 3.47.4.0
+TARGET = $(TargetFramework)
+PCLPATH = .NETPortable
+outsuffix = $(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-portable7-)
+VERSION = 3.7.4.0
+TARGET = $(TargetFramework)
+PCLPATH = .NETCore
+outsuffix = $(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-portable78-)
+VERSION = 3.78.4.0
+TARGET = $(TargetFramework)
+PCLPATH = .NETCore
+outsuffix = $(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-portable259-)
+VERSION = 3.259.4.0
+TARGET = $(TargetFramework)
+PCLPATH = .NETCore
+outsuffix = $(TargetFramework)
+endif
+
+# Version number mappings for various back versions of FSharp.Core (F# 3.0 versions of FSharp.Core)
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-net20-3.0)
+VERSION = 2.3.0.0
+TARGET = fsharp30/2.0
+REFASSEMPATH = .NETFramework/v2.0
+outsuffix = fsharp30/$(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-net40-3.0)
+VERSION = 4.3.0.0
+TARGET = fsharp30/4.5
+REFASSEMPATH = .NETFramework/v4.0
+outsuffix = fsharp30/$(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-portable47-3.0)
+VERSION = 2.3.5.0
+TARGET = fsharp30/$(TargetFramework)
+PCLPATH = .NETPortable
+outsuffix = fsharp30/$(TargetFramework)
+endif
+
+# Version number mappings for various back versions of FSharp.Core (F# 3.1 versions of FSharp.Core)
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-net20-3.1)
+VERSION = 2.3.1.0
+TARGET = fsharp31/2.0
+REFASSEMPATH = .NETFramework/v2.0
+outsuffix = fsharp31/$(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-net40-3.1)
+VERSION = 4.3.1.0
+TARGET = fsharp31/4.5
+REFASSEMPATH = .NETFramework/v4.0
+outsuffix = fsharp31/$(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-monodroid-3.1)
+VERSION = 2.3.98.1
+TARGET = fsharp31/$(TargetFramework)
+outsuffix = fsharp31/$(TargetFramework)
+endif
+
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-monotouch-3.1)
+VERSION = 2.3.98.1
+TARGET = fsharp31/$(TargetFramework)
+outsuffix = fsharp31/$(TargetFramework)
+endif
+
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-xamarinmacmobile-3.1)
+VERSION = 2.3.99.1
+TARGET = fsharp31/$(TargetFramework)
+outsuffix = fsharp31/$(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-xamarinmacfull-3.1)
+VERSION = 2.3.100.1
+TARGET = fsharp31/$(TargetFramework)
+outsuffix = fsharp31/$(TargetFramework)
+endif
+
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-portable7-3.1)
+VERSION = 3.3.1.0
+TARGET = fsharp31/$(TargetFramework)
+PCLPATH = .NETCore
+outsuffix = fsharp31/$(TargetFramework)
+endif
+
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-portable47-3.1)
+VERSION = 2.3.5.1
+TARGET = fsharp31/$(TargetFramework)
+PCLPATH = .NETPortable
+outsuffix = fsharp31/$(TargetFramework)
+endif
+
+
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-portable78-3.1)
+VERSION = 3.78.3.1
+TARGET = fsharp31/$(TargetFramework)
+PCLPATH = .NETCore
+outsuffix = fsharp31/$(TargetFramework)
+endif
+
+ifeq (x-$(TargetFramework)-$(FSharpCoreBackVersion),x-portable259-3.1)
+VERSION = 3.259.3.1
+TARGET = fsharp31/$(TargetFramework)
+PCLPATH = .NETCore
+outsuffix = fsharp31/$(TargetFramework)
+endif
+
+
+
+FSCORE_DELAY_SIGN_TOKEN = b03f5f7f11d50a3a
 SIGN_TOKEN = f536804aa0eb945b
 
 bootstrapdir = $(bootstrap)/4.0/
 tmpdir = .libs/$(CONFIG)/
 objdir = $(tmpdir)$(TARGET)/
-protodir = $(builddir)/lib/proto/4.0/
-outdir = $(builddir)lib/$(CONFIG)/$(TARGET)/
-
-FSSRGEN = $(tooldir)../2.0/fssrgen.exe
-FSLEX = $(tooldir)../2.0/fslex.exe
-FSYACC = $(tooldir)../2.0/fsyacc.exe
-
-
-FLAGS = \
-	--doc:$(objdir)$(NAME).xml \
-	--version:$(VERSION) \
-	--debug:pdbonly \
-	--optimize+ \
-	--mlcompatibility \
-	--noframework \
-	--fullpaths \
-	--times \
-	--nowarn:9
-
-DELAY_SIGN_FLAGS = \
-	--define:STRONG_NAME_AND_DELAY_SIGN_FSHARP_COMPILER_WITH_MSFT_KEY \
-	--delaysign+ \
-	--keyfile:$(topdir)msfinal.pub
-
-SIGN_FLAGS = \
-	--define:STRONG_NAME_FSHARP_COMPILER_WITH_TEST_KEY \
-	--keyfile:$(topdir)/src/fsharp/test.snk
-
-DEFINES_GENERAL = \
-	--define:TRACE \
-	--define:CROSS_PLATFORM_COMPILER
-	
-ifeq ($(CONFIG),debug)
-DEFINES_DEBUG = \
-	--define:CODE_ANALYSIS \
-	--define:DEBUG
-else
-DEFINES_DEBUG =
-endif
-
-DEFINES_2_0 = \
-	$(DEFINES_GENERAL) \
-	$(DEFINES_DEBUG) \
-	--define:FX_NO_STRUCTURAL_EQUALITY \
-	--define:FX_NO_IOBSERVABLE \
-	--define:FX_NO_TUPLE \
-	--define:FX_ATLEAST_35 \
-	--define:FX_NO_LAZY \
-	--define:FX_NO_CANCELLATIONTOKEN_CLASSES \
-	--define:FX_NO_MONITOR_REPORTS_LOCKTAKEN \
-	--define:FX_NO_TPL_PARALLEL \
-	--define:FX_NO_CUSTOMATTRIBUTEDATA \
-	--define:FX_NO_TASK \
-	--define:FX_NO_BIGINT
-
-DEFINES_2_1 = \
-	$(DEFINES_GENERAL) \
-	$(DEFINES_DEBUG) \
-	--define:FX_NO_STRUCTURAL_EQUALITY \
-	--define:FX_NO_CUSTOMATTRIBUTEDATA \
-	--define:FX_NO_BIGINT_CULTURE_PARSE \
-	--define:FX_ATLEAST_40 \
-	--define:FX_ATLEAST_35 \
-	--define:FX_ATLEAST_LINQ \
-	--define:FX_NO_BIGINT
-
-DEFINES_4_0 = \
-	$(DEFINES_GENERAL) \
-	$(DEFINES_DEBUG) \
-	--define:FX_NO_BIGINT_CULTURE_PARSE \
-	--define:FX_ATLEAST_40 \
-	--define:FX_ATLEAST_35 \
-	--define:FX_ATLEAST_LINQ
-
-REFERENCES_2_0 = \
-	-r:$(monolibdir)Microsoft.Build.Engine.dll \
-	-r:$(monolibdir)Microsoft.Build.Framework.dll \
-	-r:$(monolibdir35)Microsoft.Build.Tasks.v3.5.dll \
-	-r:$(monolibdir35)Microsoft.Build.Utilities.v3.5.dll \
-	-r:$(monolibdir)mscorlib.dll \
-	-r:$(monolibdir)System.Core.dll \
-	-r:$(monolibdir)System.dll
-
-REFERENCES_2_1 = \
-	-r:$(monolibdir21)mscorlib.dll \
-	-r:$(monolibdir21)System.Core.dll \
-	-r:$(monolibdir21)System.dll
-
-REFERENCES_4_0 = \
-	-r:$(monolibdir)Microsoft.Build.Engine.dll \
-	-r:$(monolibdir)Microsoft.Build.Framework.dll \
-	-r:$(monolibdir)Microsoft.Build.Tasks.v4.0.dll \
-	-r:$(monolibdir)Microsoft.Build.Utilities.v4.0.dll \
-	-r:$(monolibdir)mscorlib.dll \
-	-r:$(monolibdir)System.Core.dll \
-	-r:$(monolibdir)System.dll \
-	-r:$(monolibdir)System.Numerics.dll
+protodir = $(builddir)/lib/proto/
+outdir = $(builddir)lib/$(CONFIG)/$(outsuffix)/
 
 INSTALL = $(SHELL) $(topdir)install-sh
 INSTALL_DATA = $(INSTALL) -c -m 644
 INSTALL_BIN = $(INSTALL) -c -m 755
 INSTALL_LIB = $(INSTALL_BIN)
+
+XBUILD = @XBUILD@
 
 EXTRA_DIST = configure
 NO_DIST = .gitignore lib/debug lib/proto lib/release

@@ -1,13 +1,4 @@
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 //----------------------------------------------------------------------------
 // API to the compiler as an incremental service for lexing.
@@ -19,35 +10,16 @@ open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Range
 open System.Collections.Generic
 
-/// Represents encoded information for the end-of-line continutation of lexing
-type (* internal *) LexState = int64
-
-type ColorState =
-    | Token = 1
-    | IfDefSkip = 3
-    | String = 4
-    | Comment = 5
-    | StringInComment = 6
-    | VerbatimStringInComment = 7
-    | CamlOnly = 8
-    | VerbatimString = 9
-    | SingleLineComment = 10
-    | EndLineThenSkip = 11
-    | EndLineThenToken = 12
-    | TripleQuoteString = 13
-    | TripleQuoteStringInComment = 14
-    
-    | InitialState = 0 
-    
-
+/// Represents encoded information for the end-of-line continuation of lexing
+type internal LexState = int64
 
 /// A line/column pair
-type (* internal *) Position = int * int
+type internal Position = int * int
 
 /// A start-position/end-position pair
-type (* internal *) Range = Position * Position
+type internal Range = Position * Position
 
-type (* internal *) TokenColorKind =
+type internal TokenColorKind =
     | Default = 0
     | Text = 0
     | Keyword = 1
@@ -63,7 +35,7 @@ type (* internal *) TokenColorKind =
     | TypeName = 11
 #endif
     
-type (* internal *) TriggerClass =
+type internal TriggerClass =
     | None         = 0x00000000
     | MemberSelect = 0x00000001
     | MatchBraces  = 0x00000002
@@ -73,7 +45,7 @@ type (* internal *) TriggerClass =
     | ParamNext    = 0x00000020
     | ParamEnd     = 0x00000040    
     
-type (* internal *) TokenCharKind = 
+type internal TokenCharKind = 
     | Default     = 0x00000000
     | Text        = 0x00000000
     | Keyword     = 0x00000001
@@ -87,7 +59,7 @@ type (* internal *) TokenCharKind =
     | Comment     = 0x0000000A    
     
 /// Information about a particular token from the tokenizer
-type (* internal *) TokenInformation = 
+type internal TokenInformation = 
     { /// Left column of the token.
       LeftColumn:int
       /// Right column of the token.
@@ -99,9 +71,7 @@ type (* internal *) TokenInformation =
       /// The tag is an integer identifier for the token
       Tag:int
       /// Provides additional information about the token
-      TokenName:string;
-      /// The full length consumed by this match, including delayed tokens (which can be ignored in naive lexers)
-      FullMatchedLength: int }
+      TokenName:string }
 
 /// Object to tokenize a line of F# source code, starting with the given lexState.  The lexState should be 0 for
 /// the first line of text. Returns an array of ranges of the text and two enumerations categorizing the
@@ -111,19 +81,15 @@ type (* internal *) TokenInformation =
 /// A new lexState is also returned.  An IDE-plugin should in general cache the lexState 
 /// values for each line of the edited code.
 [<Sealed>] 
-type (* internal *) LineTokenizer =
+type internal LineTokenizer =
     /// Scan one token from the line
     member ScanToken : lexState:LexState -> TokenInformation option * LexState
-    static member ColorStateOfLexState : LexState -> ColorState
-    static member LexStateOfColorState : ColorState -> LexState
-    
 
 /// Tokenizer for a source file. Holds some expensive-to-compute resources at the scope of the file.
 [<Sealed>]
-type (* internal *) SourceTokenizer =
+type internal SourceTokenizer =
     new : conditionalDefines:string list * fileName:string -> SourceTokenizer
     member CreateLineTokenizer : lineText:string -> LineTokenizer
-    member CreateBufferTokenizer : bufferFiller:(char[] * int * int -> int) -> LineTokenizer
     
 
 module internal TestExpose =     

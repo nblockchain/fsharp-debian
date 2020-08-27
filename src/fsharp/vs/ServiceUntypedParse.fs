@@ -1,13 +1,4 @@
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 //----------------------------------------------------------------------------
 // Open up the compiler as an incremental service for parsing,
@@ -26,15 +17,15 @@ open Internal.Utilities.Debug
 open Microsoft.FSharp.Compiler.Range
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.ErrorLogger
-open Microsoft.FSharp.Compiler.Build
+open Microsoft.FSharp.Compiler.CompileOps
 open Microsoft.FSharp.Compiler.Lib
 
 /// Methods for dealing with F# sources files.
 module internal SourceFile =
     /// Source file extensions
-    let private compilableExtensions = Build.sigSuffixes @ Build.implSuffixes @ Build.scriptSuffixes
+    let private compilableExtensions = CompileOps.FSharpSigFileSuffixes @ CompileOps.FSharpImplFileSuffixes @ CompileOps.FSharpScriptFileSuffixes
     /// Single file projects extensions
-    let private singleFileProjectExtensions = Build.scriptSuffixes
+    let private singleFileProjectExtensions = CompileOps.FSharpScriptFileSuffixes
     /// Whether or not this file is compilable
     let IsCompilable file =
         let ext = Path.GetExtension(file)
@@ -49,9 +40,9 @@ module internal SourceFileImpl =
         let ext = Path.GetExtension(file)
         0 = String.Compare(".fsi",ext,StringComparison.OrdinalIgnoreCase)
 
-    /// Additonal #defines that should be in place when editing a file in a file editor such as VS.
+    /// Additional #defines that should be in place when editing a file in a file editor such as VS.
     let AdditionalDefinesForUseInEditor(filename) =
-        if Build.IsScript(filename) then ["INTERACTIVE";"EDITING"] // This is still used by the foreground parse
+        if CompileOps.IsScript(filename) then ["INTERACTIVE";"EDITING"] // This is still used by the foreground parse
         else ["COMPILED";"EDITING"]
            
 type CompletionPath = string list * string option // plid * residue
@@ -79,6 +70,9 @@ type internal CompletionContext =
     // completing records field
     | RecordField of RecordContext
     | RangeOperator
+    // completing named parameters\setters in parameter list of constructor\method calls
+    // end of name ast node * list of properties\parameters that were already set
+    | ParameterList of pos * HashSet<string>
 
 //----------------------------------------------------------------------------
 // Untyped scope
@@ -97,15 +91,15 @@ type internal UntypedParseResults =
     }
 
 [<Sealed>]
-type (* internal *) UntypedParseInfo internal (parsed:UntypedParseResults) = 
+type internal UntypedParseInfo(parsed:UntypedParseResults) = 
 
-    member internal scope.ParseTree =
+    member scope.ParseTree =
         match parsed with
         | { Input=x } -> x
 
-    member internal scope.Results = parsed
+    member scope.Results = parsed
 
-    member internal scope.FindNoteworthyParamInfoLocations(line,col) = 
+    member scope.FindNoteworthyParamInfoLocations(line,col) = 
         match parsed with
         | { Input=Some(input) } -> 
             // Why don't we traverse the AST under a syncop?  We don't need to, because the AST is an _immutable_ DU of DUs of ints and strings and whatnot.  And a SyncOp really does slow it down in practice.
@@ -151,7 +145,7 @@ type (* internal *) UntypedParseInfo internal (parsed:UntypedParseResults) =
                   let isFunction = 
                       isSome memFlagsOpt ||
                       match synPat with 
-                      | SynPat.LongIdent (_,_,_,args,_,_) when nonNil args -> true
+                      | SynPat.LongIdent (_,_,_, SynConstructorArgs.Pats args,_,_) when nonNil args -> true
                       | _ -> false
                   if not isFunction then 
                       yield! walkBindSeqPt spInfo
@@ -163,7 +157,7 @@ type (* internal *) UntypedParseInfo internal (parsed:UntypedParseResults) =
             and walkMatchClauses cl = 
                 [ for (Clause(_,whenExpr,e,_,_)) in cl do 
                     match whenExpr with Some e -> yield! walkExpr false e | _ -> ()
-                    yield! walkExpr true e; ]
+                    yield! walkExpr true e ]
 
             and walkExprOpt (spAlways:bool) eOpt = [ match eOpt with Some e -> yield! walkExpr spAlways e | _ -> () ]
             
@@ -176,7 +170,6 @@ type (* internal *) UntypedParseInfo internal (parsed:UntypedParseResults) =
 
                   | SynExpr.ArbitraryAfterError _ 
                   | SynExpr.LongIdent _
-                  | SynExpr.Quote _
                   | SynExpr.LibraryOnlyILAssembly _
                   | SynExpr.LibraryOnlyStaticOptimization _
                   | SynExpr.Null _
@@ -185,6 +178,7 @@ type (* internal *) UntypedParseInfo internal (parsed:UntypedParseResults) =
                   | SynExpr.Const _ -> 
                      ()
 
+                  | SynExpr.Quote(_,_,e,_,_)
                   | SynExpr.TypeTest (e,_,_)
                   | SynExpr.Upcast (e,_,_)
                   | SynExpr.AddressOf (_,e,_,_)
@@ -218,52 +212,54 @@ type (* internal *) UntypedParseInfo internal (parsed:UntypedParseResults) =
                   | SynExpr.DotSet (e1,_,e2,_)
                   | SynExpr.LibraryOnlyUnionCaseFieldSet (e1,_,_,e2,_)
                   | SynExpr.App (_,_,e1,e2,_) -> 
-                      yield! walkExpr false e1; 
-                      yield! walkExpr false e2;
+                      yield! walkExpr false e1 
+                      yield! walkExpr false e2
 
                   | SynExpr.ArrayOrList (_,es,_)
                   | SynExpr.Tuple (es,_,_) -> 
                       yield! walkExprs es
 
-                  | SynExpr.Record (_,_,fs,_) -> 
-                    
+                  | SynExpr.Record (_,copyExprOpt,fs,_) ->
+                      match copyExprOpt with
+                      | Some (e,_) -> yield! walkExpr true e
+                      | None -> ()
                       yield! walkExprs (List.map (fun (_, v, _) -> v) fs |> List.choose id)
 
                   | SynExpr.ObjExpr (_,_,bs,is,_,_) -> 
-                      yield! walkBinds bs ; 
+                      yield! walkBinds bs  
                       for (InterfaceImpl(_,bs,_)) in is do yield! walkBinds bs
                   | SynExpr.While (spWhile,e1,e2,_) -> 
                       yield! walkWhileSeqPt spWhile
-                      yield! walkExpr false e1; 
-                      yield! walkExpr true e2;
+                      yield! walkExpr false e1 
+                      yield! walkExpr true e2
                   | SynExpr.JoinIn(e1, _range, e2, _range2) -> 
-                      yield! walkExpr false e1; 
-                      yield! walkExpr false e2;
+                      yield! walkExpr false e1 
+                      yield! walkExpr false e2
                   | SynExpr.For (spFor,_,e1,_,e2,e3,_) -> 
                       yield! walkForSeqPt spFor
-                      yield! walkExpr false e1; 
-                      yield! walkExpr true e2; 
-                      yield! walkExpr true e3;
+                      yield! walkExpr false e1 
+                      yield! walkExpr true e2 
+                      yield! walkExpr true e3
                   | SynExpr.ForEach (spFor,_,_,_,e1,e2,_) ->
                       yield! walkForSeqPt spFor
-                      yield! walkExpr false e1; 
-                      yield! walkExpr true e2; 
+                      yield! walkExpr false e1 
+                      yield! walkExpr true e2 
                   | SynExpr.MatchLambda(_isExnMatch,_argm,cl,spBind,_wholem) -> 
                       yield! walkBindSeqPt spBind
                       for (Clause(_,whenExpr,e,_,_)) in cl do 
                           yield! walkExprOpt false whenExpr
-                          yield! walkExpr true e; 
+                          yield! walkExpr true e 
                   | SynExpr.Lambda (_,_,_,e,_) -> 
-                      yield! walkExpr true e; 
+                      yield! walkExpr true e 
                   | SynExpr.Match (spBind,e,cl,_,_) ->
                       yield! walkBindSeqPt spBind
-                      yield! walkExpr false e; 
+                      yield! walkExpr false e 
                       for (Clause(_,whenExpr,e,_,_)) in cl do 
                           yield! walkExprOpt false whenExpr
-                          yield! walkExpr true e; 
+                          yield! walkExpr true e 
                   | SynExpr.LetOrUse (_,_,bs,e,_) -> 
-                      yield! walkBinds bs ; 
-                      yield! walkExpr true e;
+                      yield! walkBinds bs  
+                      yield! walkExpr true e
 
                   | SynExpr.TryWith (e,_,cl,_,_,spTry,spWith) -> 
                       yield! walkTrySeqPt spTry
@@ -285,17 +281,16 @@ type (* internal *) UntypedParseInfo internal (parsed:UntypedParseResults) =
                       yield! walkExpr true e2
                       yield! walkExprOpt true e3opt
                   | SynExpr.DotIndexedGet (e1,es,_,_) -> 
-                      yield! walkExpr false e1; 
-                      yield! walkExprs es;
-
+                      yield! walkExpr false e1 
+                      yield! walkExprs [ for e in es do yield! e.Exprs ]
                   | SynExpr.DotIndexedSet (e1,es,e2,_,_,_) ->
-                      yield! walkExpr false e1; 
-                      yield! walkExprs es;
-                      yield! walkExpr false e2; 
+                      yield! walkExpr false e1 
+                      yield! walkExprs [ for e in es do yield! e.Exprs ]
+                      yield! walkExpr false e2 
                   | SynExpr.DotNamedIndexedPropertySet (e1,_,e2,e3,_) ->
-                      yield! walkExpr false e1; 
-                      yield! walkExpr false e2; 
-                      yield! walkExpr false e3; 
+                      yield! walkExpr false e1 
+                      yield! walkExpr false e2 
+                      yield! walkExpr false e3 
 
                   | SynExpr.LetOrUseBang  (spBind,_,_,_,e1,e2,_) -> 
                       yield! walkBindSeqPt spBind
@@ -397,6 +392,9 @@ type (* internal *) UntypedParseInfo internal (parsed:UntypedParseResults) =
         scope.ValidateBreakpointLocationImpl(pos)
 
 module internal UntypedParseInfoImpl =
+    
+    let emptyStringSet = HashSet<string>()
+
     let GetUntypedParseResults (upi : UntypedParseInfo) = upi.Results
 
     let GetRangeOfExprLeftOfDot(line,col,parseTreeOpt) =
@@ -581,8 +579,8 @@ module internal UntypedParseInfoImpl =
                                 | Some e -> Some(e.Range.End, posGeq lidwd.Range.Start pos)
                             match dots |> List.mapi (fun i x -> i,x) |> List.rev |> List.tryFind (fun (_,m) -> posGt pos m.Start) with
                             | None -> resultIfLeftOfLongId
-                            | Some(n,_) -> Some((List.nth lid n).idRange.End, (List.length lid = n+1)    // foo.$
-                                                                              || (posGeq (List.nth lid (n+1)).idRange.Start pos))  // foo.$bar
+                            | Some(n,_) -> Some((List.item n lid).idRange.End, (List.length lid = n+1)    // foo.$
+                                                                              || (posGeq (List.item (n+1) lid).idRange.Start pos))  // foo.$bar
                         match expr with
                         | SynExpr.LongIdent(_isOptional, lidwd, _altNameRefCell, _m) ->
                             traverseLidOrElse None lidwd
@@ -660,7 +658,7 @@ module internal UntypedParseInfoImpl =
                         let residue = if s.Length <> 0 then Some s else None
                         Some(plid, residue)
                     elif posGt x.idRange.Start pos then
-                        // can happen if caret is placed after dot but before the exising identifier A. $ B
+                        // can happen if caret is placed after dot but before the existing identifier A. $ B
                         // return accumulated plid with no residue
                         Some (plid, None)
                     else
@@ -736,12 +734,98 @@ module internal UntypedParseInfoImpl =
                     Some CompletionContext.Invalid
             | _ -> None
 
+        let (|Operator|_|) name e = 
+            match e with
+            | SynExpr.App(ExprAtomicFlag.NonAtomic, false, SynExpr.App(ExprAtomicFlag.NonAtomic, true, SynExpr.Ident(ident), lhs, _), rhs, _) 
+                when ident.idText = name -> Some(lhs, rhs)
+            | _ -> None
+
         // checks if we are in rhs of the range operator
         let isInRhsOfRangeOp (p : AstTraversal.TraversePath) = 
             match p with
-            | TS.Expr(SynExpr.App(ExprAtomicFlag.NonAtomic, false, SynExpr.App(ExprAtomicFlag.NonAtomic, true, SynExpr.Ident(ident), _, _), _, _))::_  
-                when ident.idText = "op_Range"-> true
+            | TS.Expr(Operator "op_Range" _)::_ -> true
             | _ -> false
+
+        let (|Setter|_|) e =
+            match e with
+            | Operator "op_Equality" (SynExpr.Ident id, _) -> Some id
+            | _ -> None
+
+        let findSetters argList =
+            match argList with
+            | SynExpr.Paren(SynExpr.Tuple(parameters, _, _), _, _, _) -> 
+                let setters = HashSet()
+                for p in parameters do
+                    match p with
+                    | Setter id -> ignore(setters.Add id.idText)
+                    | _ -> ()
+                setters
+            | _ -> emptyStringSet
+
+        let endOfLastIdent (lid: LongIdentWithDots) = 
+            let last = List.last lid.Lid
+            last.idRange.End
+
+        let endOfClosingTokenOrLastIdent (mClosing: range option) (lid : LongIdentWithDots) =
+            match mClosing with
+            | Some m -> m.End
+            | None -> endOfLastIdent lid
+
+        let endOfClosingTokenOrIdent (mClosing: range option) (id : Ident) =
+            match mClosing with
+            | Some m -> m.End
+            | None -> id.idRange.End
+
+        let (|NewObjectOrMethodCall|_|) e =
+            match e with
+            | (SynExpr.New (_, SynType.LongIdent typeName, arg, _)) -> 
+                // new A()
+                Some (endOfLastIdent typeName, findSetters arg)
+            | (SynExpr.New (_, SynType.App(SynType.LongIdent typeName, _, _, _, mGreaterThan, _, _), arg, _)) -> 
+                // new A<_>()
+                Some (endOfClosingTokenOrLastIdent mGreaterThan typeName, findSetters arg)
+            | (SynExpr.App (ExprAtomicFlag.Atomic, false, SynExpr.Ident id, arg, _)) -> 
+                // A()
+                Some (id.idRange.End, findSetters arg)
+            | (SynExpr.App (ExprAtomicFlag.Atomic, false, SynExpr.TypeApp(SynExpr.Ident id, _, _, _, mGreaterThan, _, _), arg, _)) -> 
+                // A<_>()
+                Some (endOfClosingTokenOrIdent mGreaterThan id , findSetters arg)
+            | (SynExpr.App (ExprAtomicFlag.Atomic, false, SynExpr.LongIdent(_, lid, _, _), arg, _)) -> 
+                // A.B()
+                Some (endOfLastIdent lid, findSetters arg)
+            | (SynExpr.App (ExprAtomicFlag.Atomic, false, SynExpr.TypeApp(SynExpr.LongIdent(_, lid, _, _), _, _, _, mGreaterThan, _, _), arg, _)) -> 
+                // A.B<_>()
+                Some (endOfClosingTokenOrLastIdent mGreaterThan lid, findSetters arg)
+            | _ -> None
+        
+        let isOnTheRightOfComma (elements: SynExpr list) (commas: range list) current = 
+            let rec loop elements (commas: range list) = 
+                match elements with
+                | x::xs ->
+                    match commas with
+                    | c::cs -> 
+                        if x === current then posLt c.End pos || posEq c.End pos 
+                        else loop xs cs
+                    | _ -> false
+                | _ -> false
+            loop elements commas
+
+        let (|PartOfParameterList|_|) precedingArgument path =
+            match path with
+            | TS.Expr(SynExpr.Paren _)::TS.Expr(NewObjectOrMethodCall(args))::_ -> 
+                if Option.isSome precedingArgument then None else Some args
+            | TS.Expr(SynExpr.Tuple (elements, commas, _))::TS.Expr(SynExpr.Paren _)::TS.Expr(NewObjectOrMethodCall(args))::_ -> 
+                match precedingArgument with
+                | None -> Some args
+                | Some e ->
+                    // if expression is passed then
+                    // 1. find it in among elements of the tuple
+                    // 2. find corresponding comma
+                    // 3. check that current position is past the comma
+                    // this is used for cases like (a = something-here.) if the cursor is after .
+                    // in this case this is not object initializer completion context
+                    if isOnTheRightOfComma elements commas e then Some args else None
+            | _ -> None
 
         let walker = 
             { 
@@ -751,7 +835,32 @@ module internal UntypedParseInfoImpl =
                             match defaultTraverse expr with
                             | None -> Some (CompletionContext.RangeOperator) // nothing was found - report that we were in the context of range operator
                             | x -> x // ok, we found something - return it
-                        else defaultTraverse expr
+                        else
+                        match expr with
+                        // new A($)
+                        | SynExpr.Const(SynConst.Unit, m) when rangeContainsPos m pos ->
+                            match path with
+                            | TS.Expr(NewObjectOrMethodCall args)::_ -> 
+                                Some (CompletionContext.ParameterList args)
+                            | _ -> 
+                                defaultTraverse expr
+                        // new (... A$)
+                        | SynExpr.Ident id when id.idRange.End = pos ->
+                            match path with
+                            | PartOfParameterList None args -> 
+                                Some (CompletionContext.ParameterList args)
+                            | _ -> 
+                                defaultTraverse expr
+                        // new (A$ = 1)
+                        // new (A = 1,$)
+                        | Setter id when id.idRange.End = pos || rangeBeforePos expr.Range pos ->
+                            let precedingArgument = if id.idRange.End = pos then None else Some expr
+                            match path with
+                            | PartOfParameterList precedingArgument args-> 
+                                Some (CompletionContext.ParameterList args)
+                            | _ -> 
+                                defaultTraverse expr
+                        | _ -> defaultTraverse expr
 
                     member this.VisitRecordField(path, copyOpt, field) = 
                         let contextFromTreePath completionPath = 

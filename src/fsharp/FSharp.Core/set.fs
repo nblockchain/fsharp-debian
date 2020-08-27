@@ -1,13 +1,4 @@
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 namespace Microsoft.FSharp.Collections
 
@@ -203,7 +194,7 @@ namespace Microsoft.FSharp.Collections
         
         let rec spliceOutSuccessor t = 
             match t with 
-            | SetEmpty -> failwith "internal error: Map.spliceOutSuccessor"
+            | SetEmpty -> failwith "internal error: Set.spliceOutSuccessor"
             | SetOne (k2) -> k2,SetEmpty
             | SetNode (k2,l,r,_) ->
                 match l with 
@@ -245,20 +236,24 @@ namespace Microsoft.FSharp.Collections
             | SetOne(k2) -> f k2
             | SetEmpty -> ()            
 
-        let rec foldBack f m x = 
+        let rec foldBackOpt (f:OptimizedClosures.FSharpFunc<_,_,_>) m x = 
             match m with 
-            | SetNode(k,l,r,_) -> foldBack f l (f k (foldBack f r x))
-            | SetOne(k) -> f k x
+            | SetNode(k,l,r,_) -> foldBackOpt f l (f.Invoke(k, (foldBackOpt f r x)))
+            | SetOne(k) -> f.Invoke(k, x)
             | SetEmpty -> x
 
-        let rec fold f x m = 
+        let foldBack f m x = foldBackOpt (OptimizedClosures.FSharpFunc<_,_,_>.Adapt(f)) m x
+
+        let rec foldOpt (f:OptimizedClosures.FSharpFunc<_,_,_>) x m = 
             match m with 
             | SetNode(k,l,r,_) -> 
-                let x = fold f x l in 
-                let x = f x k
-                fold f x r
-            | SetOne(k) -> f x k
+                let x = foldOpt f x l
+                let x = f.Invoke(x, k)
+                foldOpt f x r
+            | SetOne(k) -> f.Invoke(x, k)
             | SetEmpty -> x
+
+        let fold f x m = foldOpt (OptimizedClosures.FSharpFunc<_,_,_>.Adapt(f)) x m
 
         let rec forall f m = 
             match m with 
@@ -300,7 +295,7 @@ namespace Microsoft.FSharp.Collections
             // Perf: tried bruteForce for low heights, but nothing significant 
             match t1,t2 with               
             | SetNode(k1,t11,t12,h1),SetNode(k2,t21,t22,h2) -> // (t11 < k < t12) AND (t21 < k2 < t22) 
-                // Divide and Quonquer:
+                // Divide and Conquer:
                 //   Suppose t1 is largest.
                 //   Split t2 using pivot k1 into lo and hi.
                 //   Union disjoint subproblems and then combine. 
@@ -607,7 +602,9 @@ namespace Microsoft.FSharp.Collections
 #endif
             SetTree.mem s.Comparer  x s.Tree
         member s.Iterate(x) = SetTree.iter  x s.Tree
-        member s.Fold f z  = SetTree.fold (fun x z -> f z x) z s.Tree 
+        member s.Fold f z  = 
+            let f = OptimizedClosures.FSharpFunc<_,_,_>.Adapt(f)
+            SetTree.fold (fun x z -> f.Invoke(z, x)) z s.Tree 
 
 #if FX_NO_DEBUG_DISPLAYS
 #else

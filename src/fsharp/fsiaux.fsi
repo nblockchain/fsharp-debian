@@ -1,3 +1,4 @@
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 namespace Microsoft.FSharp.Compiler.Interactive
 
@@ -60,13 +61,9 @@ module Settings =
   /// <summary>The settings associated with the interactive session.</summary>
   val fsi : InteractiveSession
 
-/// <summary>Hooks (internal use only, may change without notice).</summary>
+/// <summary>Hooks (test use only, may change without notice).</summary>
 module RuntimeHelpers = 
     val SaveIt : 'T -> unit
     val internal GetSavedIt : unit -> obj
     val internal GetSavedItType : unit -> System.Type
 (*    val openPaths : unit -> string[] *)
-
-#if SILVERLIGHT
-    val GetSimpleEventLoop : unit -> IEventLoop
-#endif

@@ -1,14 +1,4 @@
-//----------------------------------------------------------------------------
-//
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 module internal Microsoft.FSharp.Compiler.Ast
 
@@ -61,7 +51,7 @@ type XmlDocCollector() =
         lazy (savedLines.ToArray() |> Array.sortWith (fun (_,p1) (_,p2) -> posCompare p1 p2))
 
     let check() = 
-        assert (not savedLinesAsArray.IsValueCreated && "can't add more XmlDoc elements to XmlDocCOllector after extracting first XmlDoc from the overall results" <> "")
+        assert (not savedLinesAsArray.IsValueCreated && "can't add more XmlDoc elements to XmlDocCollector after extracting first XmlDoc from the overall results" <> "")
 
     member x.AddGrabPoint(pos) = 
         check()
@@ -104,12 +94,8 @@ type XmlDoc =
                 let lineAT = lineA.TrimStart([|' '|])
                 if lineAT = "" then processLines rest
                 else if String.hasPrefix lineAT "<" then lines
-                else ["<summary>"] @
-#if SILVERLIGHT
-                     lines @
-#else        
+                else ["<summary>"] @     
                      (lines |> List.map (fun line -> System.Security.SecurityElement.Escape(line))) @
-#endif
                      ["</summary>"]               
 
         let lines = processLines (Array.toList lines)
@@ -250,10 +236,10 @@ type
     | String of string * range 
     /// F# syntax: verbatim or regular byte string, e.g. "abc"B.
     ///
-    /// Also used internally in the typechecker once an array of unit16 contants 
+    /// Also used internally in the typechecker once an array of unit16 constants 
     /// is detected, to allow more efficient processing of large arrays of uint16 constants. 
     | Bytes of byte[] * range 
-    /// Used internally in the typechecker once an array of unit16 contants 
+    /// Used internally in the typechecker once an array of unit16 constants 
     /// is detected, to allow more efficient processing of large arrays of uint16 constants. 
     | UInt16s of uint16[] 
     /// Old comment: "we never iterate, so the const here is not another SynConst.Measure"
@@ -265,17 +251,26 @@ type
       
 and  
     [<NoEquality; NoComparison; RequireQualifiedAccess>]
-    /// The unchecked abstract syntax tree of F# unit of measure annotaitons. 
-    /// This should probably be merged with the represenation of SynType.
+    /// The unchecked abstract syntax tree of F# unit of measure annotations. 
+    /// This should probably be merged with the representation of SynType.
     SynMeasure = 
     | Named of LongIdent * range
     | Product of SynMeasure * SynMeasure * range
     | Seq of SynMeasure list * range
     | Divide of SynMeasure * SynMeasure * range
-    | Power of SynMeasure * int * range
+    | Power of SynMeasure * SynRationalConst * range
     | One 
     | Anon of range
     | Var of SynTypar * range
+
+and
+    [<NoEquality; NoComparison; RequireQualifiedAccess>]
+    /// The unchecked abstract syntax tree of F# unit of measure exponents. 
+    SynRationalConst = 
+    | Integer of int32
+    | Rational of int32 * int32 * range
+    | Negate of SynRationalConst
+
 
 //------------------------------------------------------------------------
 //  AST: the grammar of types, expressions, declarations etc.
@@ -323,11 +318,11 @@ type SequencePointInfoForWhileLoop =
     
 type SequencePointInfoForBinding = 
     | SequencePointAtBinding of range
-    // Indicates the ommission of a sequence point for a binding for a 'do expr' 
+    // Indicates the omission of a sequence point for a binding for a 'do expr' 
     | NoSequencePointAtDoBinding
-    // Indicates the ommission of a sequence point for a binding for a 'let e = expr' where 'expr' has immediate control flow
+    // Indicates the omission of a sequence point for a binding for a 'let e = expr' where 'expr' has immediate control flow
     | NoSequencePointAtLetBinding
-    // Indicates the ommission of a sequence point for a compiler generated binding
+    // Indicates the omission of a sequence point for a compiler generated binding
     // where we've done a local expansion of some construct into something that involves
     // a 'let'. e.g. we've inlined a function and bound its arguments using 'let'
     // The let bindings are 'sticky' in that the inversion of the inlining would involve
@@ -358,7 +353,7 @@ type RecordFieldName = LongIdentWithDots * bool
 
 type ExprAtomicFlag =
     /// Says that the expression is an atomic expression, i.e. is of a form that has no whitespace unless 
-    /// enclosed in parantheses, e.g. 1, "3", ident, ident.[expr] and (expr). If an atomic expression has
+    /// enclosed in parentheses, e.g. 1, "3", ident, ident.[expr] and (expr). If an atomic expression has
     /// type T, then the largest expression ending at the same range as the atomic expression also has type T.
     | Atomic = 0
     | NonAtomic = 1
@@ -440,8 +435,8 @@ and
     | HashConstraint of SynType * range
     /// F# syntax : for units of measure e.g. m / s 
     | MeasureDivide of SynType * SynType * range       
-    /// F# syntax : for units of measure e.g. m^3 
-    | MeasurePower of SynType * int * range      
+    /// F# syntax : for units of measure e.g. m^3, kg^1/2
+    | MeasurePower of SynType * SynRationalConst * range      
     /// F# syntax : 1, "abc" etc, used in parameters to type providers
     /// For the dimensionless units i.e. 1 , and static parameters to provided types
     | StaticConstant of SynConst * range          
@@ -542,7 +537,7 @@ and
     | Assert of SynExpr * range
 
     /// App(exprAtomicFlag, isInfix, funcExpr, argExpr, m)
-    ///  - exprAtomicFlag: indicates if the applciation is syntactically atomic, e.g. f.[1] is atomic, but 'f x' is not
+    ///  - exprAtomicFlag: indicates if the application is syntactically atomic, e.g. f.[1] is atomic, but 'f x' is not
     ///  - isInfix is true for the first app of an infix operator, e.g. 1+2 becomes App(App(+,1),2), where the inner node is marked isInfix 
     ///      (or more generally, for higher operator fixities, if App(x,y) is such that y comes before x in the source code, then the node is marked isInfix=true)
     ///
@@ -606,12 +601,12 @@ and
     | DotSet of SynExpr * LongIdentWithDots * SynExpr * range
 
     /// F# syntax: expr.[expr,...,expr] 
-    | DotIndexedGet of SynExpr * SynExpr list * range * range
+    | DotIndexedGet of SynExpr * SynIndexerArg list * range * range
 
     /// DotIndexedSet (objectExpr, indexExprs, valueExpr, rangeOfLeftOfSet, rangeOfDot, rangeOfWholeExpr)
     ///
     /// F# syntax: expr.[expr,...,expr] <- expr
-    | DotIndexedSet of SynExpr * SynExpr list * SynExpr * range * range * range
+    | DotIndexedSet of SynExpr * SynIndexerArg list * SynExpr * range * range * range
 
     /// F# syntax: Type.Items(e1) <- e2 , rarely used named-property-setter notation, e.g. Foo.Bar.Chars(3) <- 'a'
     | NamedIndexedPropertySet of LongIdentWithDots * SynExpr * SynExpr * range
@@ -879,6 +874,14 @@ and
             mkRange m.FileName start e
         | SynExpr.Ident id -> id.idRange
 
+
+and 
+    [<NoEquality; NoComparison; RequireQualifiedAccess>]
+    SynIndexerArg = 
+    | Two of SynExpr * SynExpr 
+    | One of SynExpr
+    member x.Range = match x with Two (e1,e2) -> unionRanges e1.Range e2.Range | One e -> e.Range
+    member x.Exprs = match x with Two (e1,e2) -> [e1;e2] | One e -> [e]
 and  
     [<NoEquality; NoComparison; RequireQualifiedAccess>]
     SynSimplePat =
@@ -924,6 +927,9 @@ and
     | SimplePats of SynSimplePat list * range
     | Typed of  SynSimplePats * SynType * range
 
+and SynConstructorArgs =
+    | Pats of SynPat list
+    | NamePatPairs of (Ident * SynPat) list * range
 and  
     [<NoEquality; NoComparison;RequireQualifiedAccess>]
     SynPat =
@@ -934,7 +940,7 @@ and
     | Attrib of  SynPat * SynAttributes * range
     | Or of  SynPat * SynPat * range
     | Ands of  SynPat list * range
-    | LongIdent of LongIdentWithDots * (* holds additional ident for tooling *) Ident option * SynValTyparDecls option (* usually None: temporary used to parse "f<'a> x = x"*) * SynPat list  * SynAccess option * range
+    | LongIdent of LongIdentWithDots * (* holds additional ident for tooling *) Ident option * SynValTyparDecls option (* usually None: temporary used to parse "f<'a> x = x"*) * SynConstructorArgs  * SynAccess option * range
     | Tuple of  SynPat list * range
     | Paren of  SynPat * range
     | ArrayOrList of  bool * SynPat list * range
@@ -1532,15 +1538,16 @@ let rec IsControlFlowExpression e =
     | _ -> false
 
 let mkAnonField (ty: SynType) = Field([],false,None,ty,false,PreXmlDoc.Empty,None,ty.Range)
+let mkNamedField (ident, ty: SynType) = Field([],false,Some ident,ty,false,PreXmlDoc.Empty,None,ty.Range)
 
 let mkSynPatVar vis (id:Ident) = SynPat.Named (SynPat.Wild id.idRange,id,false,vis,id.idRange)
 let mkSynThisPatVar (id:Ident) = SynPat.Named (SynPat.Wild id.idRange,id,true,None,id.idRange)
-let mkSynPatMaybeVar lidwd vis m =  SynPat.LongIdent (lidwd,None,None,[],vis,m) 
+let mkSynPatMaybeVar lidwd vis m =  SynPat.LongIdent (lidwd,None,None,SynConstructorArgs.Pats [],vis,m) 
 
 /// Extract the argument for patterns corresponding to the declaration of 'new ... = ...'
 let (|SynPatForConstructorDecl|_|) x = 
     match x with 
-    | SynPat.LongIdent (LongIdentWithDots([_],_),_,_,[arg],_,_) -> Some arg
+    | SynPat.LongIdent (LongIdentWithDots([_],_),_,_, SynConstructorArgs.Pats [arg],_,_) -> Some arg
     | _ -> None
 
 /// Recognize the '()' in 'new()'
@@ -1588,7 +1595,7 @@ let rec SimplePatOfPat (synArgNameGenerator: SynArgNameGenerator) p =
         let m = p.Range
         let isCompGen,altNameRefCell,id,item = 
             match p with 
-            | SynPat.LongIdent(LongIdentWithDots([id],_),_,None,[],None,_) -> 
+            | SynPat.LongIdent(LongIdentWithDots([id],_),_,None, SynConstructorArgs.Pats [],None,_) -> 
                 // The pattern is 'V' or some other capitalized identifier.
                 // It may be a real variable, in which case we want to maintain its name.
                 // But it may also be a nullary union case or some other identifier.
@@ -1675,7 +1682,8 @@ let PushCurriedPatternsToExpr synArgNameGenerator wholem isMember pats rhs =
 /// Helper for parsing the inline IL fragments. 
 #if NO_INLINE_IL_PARSER
 let ParseAssemblyCodeInstructions _s m = 
-    errorR(Error((193,"Inline IL not valid in a hosted environment"),m)) ; [| |]
+    errorR(Error((193,"Inline IL not valid in a hosted environment"),m))
+    [| |]
 #else
 let ParseAssemblyCodeInstructions s m = 
     try Microsoft.FSharp.Compiler.AbstractIL.Internal.AsciiParser.ilInstrs 
@@ -1685,11 +1693,12 @@ let ParseAssemblyCodeInstructions s m =
       errorR(Error(FSComp.SR.astParseEmbeddedILError(), m)); [| |]
 #endif
 
+
 /// Helper for parsing the inline IL fragments. 
 #if NO_INLINE_IL_PARSER
 let ParseAssemblyCodeType _s m = 
-    // REVIEW: break out into a resource
-    errorR(Error((193,"Inline IL not valid in a hosted environment"),m)) ; IL.ecmaILGlobals.typ_Object
+    errorR(Error((193,"Inline IL not valid in a hosted environment"),m))
+    IL.EcmaILGlobals.typ_Object
 #else
 let ParseAssemblyCodeType s m = 
     try Microsoft.FSharp.Compiler.AbstractIL.Internal.AsciiParser.ilType 
@@ -1697,7 +1706,7 @@ let ParseAssemblyCodeType s m =
            (UnicodeLexing.StringAsLexbuf s)
     with RecoverableParseError -> 
       errorR(Error(FSComp.SR.astParseEmbeddedILTypeError(),m)); 
-      IL.ecmaILGlobals.typ_Object
+      IL.EcmaILGlobals.typ_Object
 #endif
 
 //------------------------------------------------------------------------
@@ -1725,20 +1734,19 @@ let mkSynApp3 f x1 x2 x3 m = mkSynApp1 (mkSynApp2 f x1 x2 m) x3 m
 let mkSynApp4 f x1 x2 x3 x4 m = mkSynApp1 (mkSynApp3 f x1 x2 x3 m) x4 m
 let mkSynApp5 f x1 x2 x3 x4 x5 m = mkSynApp1 (mkSynApp4 f x1 x2 x3 x4 m) x5 m
 let mkSynDotParenSet  m a b c = mkSynTrifix m parenSet a b c
-let mkSynDotBrackGet  m mDot a b   = SynExpr.DotIndexedGet(a,[b],mDot,m)
+let mkSynDotBrackGet  m mDot a b   = SynExpr.DotIndexedGet(a,[SynIndexerArg.One b],mDot,m)
 let mkSynQMarkSet m a b c = mkSynTrifix m qmarkSet a b c
+let mkSynDotBrackSliceGet  m mDot arr sliceArg = SynExpr.DotIndexedGet(arr,[sliceArg],mDot,m)
 
-let mkSynDotBrackSliceGet  m mDot arr (x,y) = 
-    SynExpr.DotIndexedGet(arr,[x;y],mDot,m)
-
-let mkSynDotBrackSlice2Get  m mDot arr (x1,y1) (x2,y2) = 
-    SynExpr.DotIndexedGet(arr,[x1;y1;x2;y2],mDot,m)
-
-let mkSynDotBrackSlice3Get  m mDot arr (x1,y1) (x2,y2) (x3,y3) = 
-    SynExpr.DotIndexedGet(arr,[x1;y1;x2;y2;x3;y3],mDot,m)
-
-let mkSynDotBrackSlice4Get  m mDot arr (x1,y1) (x2,y2) (x3,y3) (x4,y4) = 
-    SynExpr.DotIndexedGet(arr,[x1;y1;x2;y2;x3;y3;x4;y4],mDot,m)
+let mkSynDotBrackSeqSliceGet  m mDot arr (argslist:list<SynIndexerArg>) = 
+    let notsliced=[ for arg in argslist do
+                       match arg with 
+                       | SynIndexerArg.One x -> yield x
+                       | _ -> () ]
+    if notsliced.Length = argslist.Length then
+        SynExpr.DotIndexedGet(arr,[SynIndexerArg.One (SynExpr.Tuple(notsliced,[],unionRanges (List.head notsliced).Range (List.last notsliced).Range))],mDot,m)
+    else
+        SynExpr.DotIndexedGet(arr,argslist,mDot,m)
 
 let mkSynDotParenGet lhsm dotm a b   = 
     match b with
@@ -1940,12 +1948,12 @@ module SynInfo =
 
         let infosForExplicitArgs = 
             match pat with 
-            | Some(SynPat.LongIdent(_,_,_,curriedArgs,_,_)) -> List.map InferSynArgInfoFromPat curriedArgs
+            | Some(SynPat.LongIdent(_,_,_, SynConstructorArgs.Pats curriedArgs,_,_)) -> List.map InferSynArgInfoFromPat curriedArgs
             | _ -> []
 
         let explicitArgsAreSimple = 
             match pat with 
-            | Some(SynPat.LongIdent(_,_,_,curriedArgs,_,_)) -> List.forall isSimplePattern curriedArgs
+            | Some(SynPat.LongIdent(_,_,_, SynConstructorArgs.Pats curriedArgs,_,_)) -> List.forall isSimplePattern curriedArgs
             | _ -> true
 
         let retInfo = InferSynReturnData retInfo
@@ -2010,7 +2018,19 @@ type LexerEndlineContinuation =
       match x with 
       | LexerEndlineContinuation.Token(ifd) 
       | LexerEndlineContinuation.Skip(ifd, _, _) -> ifd
-          
+
+type LexerIfdefExpression =
+    | IfdefAnd          of LexerIfdefExpression*LexerIfdefExpression
+    | IfdefOr           of LexerIfdefExpression*LexerIfdefExpression
+    | IfdefNot          of LexerIfdefExpression
+    | IfdefId           of string
+
+let rec LexerIfdefEval (lookup : string -> bool) = function
+    | IfdefAnd (l,r)    -> (LexerIfdefEval lookup l) && (LexerIfdefEval lookup r)
+    | IfdefOr (l,r)     -> (LexerIfdefEval lookup l) || (LexerIfdefEval lookup r)
+    | IfdefNot e        -> not (LexerIfdefEval lookup e)
+    | IfdefId id        -> lookup id
+
 /// The parser defines a number of tokens for whitespace and
 /// comments eliminated by the lexer.  These carry a specification of
 /// a continuation for the lexer for continued processing after we've dealt with
@@ -2055,7 +2075,7 @@ and LexCont = LexerWhitespaceContinuation
 /// The error raised by the parse_error_rich function, which is called by the parser engine
 /// when a syntax error occurs. The first object is the ParseErrorContext which contains a dump of
 /// information about the grammar at the point where the error occured, e.g. what tokens
-/// are valid to shift next at that point in the grammar. This information is processed in build.fs.
+/// are valid to shift next at that point in the grammar. This information is processed in CompileOps.fs.
 [<NoEquality; NoComparison>]
 exception SyntaxError of obj (* ParseErrorContext<_> *) * range
 
@@ -2086,14 +2106,17 @@ let rhs2 (parseState: IParseState) i j =
 let rhs parseState i = rhs2 parseState i i 
 
 type IParseState with 
-    member x.GetSynArgNameGenerator() = 
+
+    /// Get the generator used for compiler-generated argument names.
+    member x.SynArgNameGenerator = 
         let key = "SynArgNameGenerator"
         let bls = x.LexBuffer.BufferLocalStore
         if not (bls.ContainsKey key) then  
             bls.[key] <- box (SynArgNameGenerator())
         bls.[key] :?> SynArgNameGenerator
 
-    member x.ResetSynArgNameGenerator() = x.GetSynArgNameGenerator().Reset()
+    /// Reset the generator used for compiler-generated argument names.
+    member x.ResetSynArgNameGenerator() = x.SynArgNameGenerator.Reset()
 
 
 /// XmlDoc F# lexer/parser state, held in the BufferLocalStore for the lexer.
@@ -2250,10 +2273,10 @@ let rec synExprContainsError inpExpr =
           | SynExpr.IfThenElse (e1,e2,e3opt,_,_,_,_) ->
               walkExpr e1 || walkExpr e2 || walkExprOpt e3opt
           | SynExpr.DotIndexedGet (e1,es,_,_) -> 
-              walkExpr e1 || walkExprs es
+              walkExpr e1 || walkExprs [ for e in es do yield! e.Exprs ]
 
           | SynExpr.DotIndexedSet (e1,es,e2,_,_,_) ->
-              walkExpr e1 || walkExprs es || walkExpr e2
+              walkExpr e1 || walkExprs [ for e in es do yield! e.Exprs ] || walkExpr e2
           | SynExpr.DotNamedIndexedPropertySet (e1,_,e2,e3,_) ->
               walkExpr e1 || walkExpr e2 || walkExpr e3
 

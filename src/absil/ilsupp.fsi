@@ -1,14 +1,4 @@
-//----------------------------------------------------------------------------
-//
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 /// Functions associated with writing binaries which 
 /// vary between supported implementations of the CLI Common Language 
@@ -25,8 +15,6 @@ val pdbInitialize : string -> string -> PdbWriter
 val absilWriteGetTimeStamp: unit -> int32
 
 
-#if SILVERLIGHT
-#else
 open System
 open System.Runtime.InteropServices
 open System.Diagnostics.SymbolStore
@@ -99,7 +87,7 @@ type PdbDocumentWriter
 type idd =
     { iddCharacteristics: int32;
       iddMajorVersion: int32; (* actually u16 in IMAGE_DEBUG_DIRECTORY *)
-      iddMinorVersion: int32; (* acutally u16 in IMAGE_DEBUG_DIRECTORY *)
+      iddMinorVersion: int32; (* actually u16 in IMAGE_DEBUG_DIRECTORY *)
       iddType: int32;
       iddData: byte[];}
 
@@ -107,7 +95,8 @@ val pdbInitialize:
     string (* .exe/.dll already written and closed *) -> 
     string  (* .pdb to write *) ->
     PdbWriter
-val pdbClose: PdbWriter -> unit
+val pdbClose: PdbWriter -> string -> string -> unit
+val pdbCloseDocument : PdbDocumentWriter -> unit
 val pdbSetUserEntryPoint: PdbWriter -> int32 -> unit
 val pdbDefineDocument: PdbWriter -> string -> PdbDocumentWriter
 val pdbOpenMethod: PdbWriter -> int32 -> unit
@@ -134,5 +123,4 @@ val signerGetPublicKeyForKeyContainer: string -> pubkey
 val signerCloseKeyContainer: keyContainerName -> unit 
 val signerSignatureSize: pubkey -> int 
 val signerSignFileWithKeyPair: string -> keyPair -> unit 
-val signerSignFileWithKeyContainer: string -> keyContainerName -> unit 
-#endif
+val signerSignFileWithKeyContainer: string -> keyContainerName -> unit

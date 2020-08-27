@@ -1,13 +1,4 @@
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 //----------------------------------------------------------------------------
 // Open up the compiler as an incremental service for lexing.
@@ -54,7 +45,7 @@ type TokenColorKind =
     | TypeName = 11
 #endif
 
-/// Categorize an action the editor should take in respons to a token, e.g. brace matching
+/// Categorize an action the editor should take in response to a token, e.g. brace matching
 /// 
 /// NOTE: This corresponds to a token categorization originally used in Visual Studio 2003 and the original Babel source code.
 /// It is not clear it is a primary logical classification that should be being used in the 
@@ -97,17 +88,13 @@ type TokenInformation = {
     CharClass:TokenCharKind;
     TriggerClass:TriggerClass;
     Tag:int
-    TokenName:string;
-    FullMatchedLength: int }
+    TokenName:string }
 
 //----------------------------------------------------------------------------
 // Flags
 //--------------------------------------------------------------------------
 
 module internal Flags = 
-#if SILVERLIGHT
-    let init ()= ()
-#else
 #if DEBUG
     let loggingTypes             = System.Environment.GetEnvironmentVariable("mFSharp_Logging")
     let logging                  = not (String.IsNullOrEmpty(loggingTypes))
@@ -197,7 +184,6 @@ module internal Flags =
 
     //let stripFSharpCoreReferences   = not (String.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("mFSharp_StripFSharpCoreReferences")))
     let init() = doInit
-#endif
         
 open Flags
 
@@ -539,23 +525,24 @@ type SingleLineTokenState =
 
 /// Split a line into tokens and attach information about the tokens. This information is used by Visual Studio.
 [<Sealed>]
-type (* internal *) LineTokenizer(lexbuf: UnicodeLexing.Lexbuf, 
-                                  maxLength: int option,
-                                  filename : string, 
-                                  lexArgsLightOn : lexargs,
-                                  lexArgsLightOff : lexargs) = 
+type internal LineTokenizer(text:string, 
+                            filename : string, 
+                            lexArgsLightOn : lexargs,
+                            lexArgsLightOff : lexargs
+                            ) = 
 
     let skip = false   // don't skip whitespace in the lexer 
+    let lexbuf = UnicodeLexing.StringAsLexbuf text
     
     let mutable singleLineTokenState = SingleLineTokenState.BeforeHash
-    let fsx = Build.IsScript(filename)
+    let fsx = CompileOps.IsScript(filename)
 
     // ----------------------------------------------------------------------------------
     // This implements post-processing of #directive tokens - not very elegant, but it works...
     // We get the whole "   #if IDENT // .. .. " thing as a single token from the lexer,
     // so we need to split it into tokens that are used by VS for colorization
     
-    // Stack for tokens that are split during postrpocessing    
+    // Stack for tokens that are split during postpocessing    
     let mutable tokenStack = new Stack<_>()
     let delayToken tok = tokenStack.Push(tok)
 
@@ -633,10 +620,7 @@ type (* internal *) LineTokenizer(lexbuf: UnicodeLexing.Lexbuf,
                 let leftp = lexbuf.StartPos 
                 let rightp = lexbuf.EndPos 
                 let leftc = leftp.Column 
-                let rightc = 
-                    match maxLength with 
-                    | Some mx when rightp.Line > leftp.Line -> mx
-                    | _ -> rightp.Column 
+                let rightc = if rightp.Line > leftp.Line then text.Length else rightp.Column 
                 let rightc = rightc - 1   
                 leftc,rightc
 
@@ -649,7 +633,7 @@ type (* internal *) LineTokenizer(lexbuf: UnicodeLexing.Lexbuf,
                   let leftc, rightc = ColumnsOfCurrentToken()
                   
                   // Splits tokens like ">." into multiple tokens - this duplicates behavior from the 'lexfilter'
-                  // which cannot be (easily) used from the langauge service. The rules here are not always valid,
+                  // which cannot be (easily) used from the language service. The rules here are not always valid,
                   // because sometimes token shouldn't be split. However it is just for colorization & 
                   // for VS (which needs to recognize when user types ".").
                   match token with
@@ -662,7 +646,7 @@ type (* internal *) LineTokenizer(lexbuf: UnicodeLexing.Lexbuf,
                   | RQUOTE_DOT (s,raw) -> 
                       delayToken(DOT, rightc, rightc)
                       false, (RQUOTE (s,raw), leftc, rightc - 1)
-                  | INFIX_COMPARE_OP (Lexfilter.TyparsCloseOp(greaters,afterOp) as opstr) -> 
+                  | INFIX_COMPARE_OP (LexFilter.TyparsCloseOp(greaters,afterOp) as opstr) -> 
                       match afterOp with
                       | None -> ()
                       | Some tok -> delayToken(tok, leftc + greaters.Length, rightc)
@@ -724,15 +708,7 @@ type (* internal *) LineTokenizer(lexbuf: UnicodeLexing.Lexbuf,
                     // If we're using token from cache, we don't move forward with lexing
                     if isCached then lexcontInitial else LexerStateEncoding.computeNextLexState token lexcontInitial 
                 let tokenTag = tagOfToken token 
-                let fullMatchedLength = lexbuf.EndPos.AbsoluteOffset - lexbuf.StartPos.AbsoluteOffset 
-                let tokenData = { TokenName = token_to_string token; 
-                                  LeftColumn=leftc; 
-                                  RightColumn=rightc;
-                                  ColorClass=colorClass;
-                                  CharClass=charClass;
-                                  TriggerClass=triggerClass;
-                                  Tag=tokenTag;
-                                  FullMatchedLength=fullMatchedLength} 
+                let tokenData = {TokenName = token_to_string token; LeftColumn=leftc; RightColumn=rightc;ColorClass=colorClass;CharClass=charClass;TriggerClass=triggerClass;Tag=tokenTag} 
                 Some(tokenData), lexcontFinal, tokenTag
                 
         // Get the final lex int and color state                
@@ -757,6 +733,7 @@ type (* internal *) LineTokenizer(lexbuf: UnicodeLexing.Lexbuf,
                     | true,"I" 
                     | true,"load" 
                     | true,"time" 
+                    | true,"dbgbreak" 
                     | true,"cd" 
 #if DEBUG
                     | true,"terms" 
@@ -786,17 +763,6 @@ type (* internal *) LineTokenizer(lexbuf: UnicodeLexing.Lexbuf,
             
         tokenDataOption, lexintFinal
 
-    static member ColorStateOfLexState (lexState: LexState) = 
-        let tag,_ncomments,_position,_ifdefStack,_lightSyntaxStatusInital = LexerStateEncoding.decodeLexCont lexState 
-        tag
-
-    static member LexStateOfColorState (colorState: ColorState) = 
-        let ncomments = 0L
-        let position = pos0 
-        let ifdefStack = []
-        let light = true
-        LexerStateEncoding.encodeLexCont colorState ncomments position ifdefStack light
-
 [<Sealed>]
 type SourceTokenizer(defineConstants : string list, filename : string) =     
     let lexResourceManager = new Lexhelp.LexResourceManager() 
@@ -805,11 +771,5 @@ type SourceTokenizer(defineConstants : string list, filename : string) =
     let lexArgsLightOff = mkLexargs(filename,defineConstants,LightSyntaxStatus(false,false),lexResourceManager, ref [],DiscardErrorsLogger) 
     
     member this.CreateLineTokenizer(lineText: string) = 
-        let lexbuf = UnicodeLexing.StringAsLexbuf lineText
-        LineTokenizer(lexbuf, Some lineText.Length, filename, lexArgsLightOn, lexArgsLightOff)
-
-    
-    member this.CreateBufferTokenizer(bufferFiller) = 
-        let lexbuf = UnicodeLexing.FunctionAsLexbuf bufferFiller
-        LineTokenizer(lexbuf, None, filename, lexArgsLightOn, lexArgsLightOff)
+        LineTokenizer(lineText, filename, lexArgsLightOn, lexArgsLightOff)
 

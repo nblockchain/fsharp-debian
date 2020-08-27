@@ -1,13 +1,4 @@
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 // This file is compiled 4(!) times in the codebase
 //    - as the internal implementation of printf '%A' formatting 
@@ -182,7 +173,7 @@ namespace Microsoft.FSharp.Text.StructuredFormat
         /// See tagL
         val tagAttrL : text:string -> maps:(string * string) list -> layout:Layout -> Layout
 
-        /// For limitting layout of list-like sequences (lists,arrays,etc).
+        /// For limiting layout of list-like sequences (lists,arrays,etc).
         /// unfold a list of items using (project and z) making layout list via itemL.
         /// If reach maxLength (before exhausting) then truncate.
         val unfoldL : selector:('T -> Layout) -> folder:('State -> ('T * 'State) option) -> state:'State -> count:int -> Layout list
@@ -197,7 +188,7 @@ namespace Microsoft.FSharp.Text.StructuredFormat
     /// If ShowProperties is set the printing process will evaluate properties of the values being
     /// displayed.  This may cause additional computation.  
     ///
-    /// The ShowIEnumerable is set the printing process will force the evalution of IEnumerable objects
+    /// The ShowIEnumerable is set the printing process will force the evaluation of IEnumerable objects
     /// to a small, finite depth, as determined by the printing parameters.
     /// This may lead to additional computation being performed during printing.
     ///
@@ -228,7 +219,11 @@ namespace Microsoft.FSharp.Text.StructuredFormat
 #endif
 #endif
           FormatProvider: System.IFormatProvider
+#if FX_RESHAPED_REFLECTION
+          ShowNonPublic : bool
+#else
           BindingFlags: System.Reflection.BindingFlags
+#endif
           PrintWidth : int 
           PrintDepth : int 
           PrintLength : int
@@ -262,12 +257,17 @@ namespace Microsoft.FSharp.Text.StructuredFormat
         /// call to Object.ToString() on the boxed version of the input.
         val any_to_string: value:'T -> string
 
-        /// Ouput any value to a channel using the same set of formatting rules
+        /// Output any value to a channel using the same set of formatting rules
         /// as any_to_string
         val output_any: writer:TextWriter -> value:'T -> unit
 
 #if RUNTIME   // FSharp.Core.dll: Most functions aren't needed in FSharp.Core.dll, but we add one entry for printf
+
+#if FX_RESHAPED_REFLECTION
+        val anyToStringForPrintf: options:FormatOptions -> showNonPublicMembers : bool -> value:'T -> string
+#else
         val anyToStringForPrintf: options:FormatOptions -> bindingFlags:System.Reflection.BindingFlags -> value:'T -> string
+#endif
 #else
         val any_to_layout   : options:FormatOptions -> value:'T -> Layout
         val squash_layout   : options:FormatOptions -> layout:Layout -> Layout

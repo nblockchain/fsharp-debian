@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
 // Various tests for Microsoft.FSharp.Quotations
 
 namespace FSharp.Core.Unittests.FSharp_Core.Microsoft_FSharp_Quotations
@@ -65,3 +67,7 @@ type FSharpQuotationsTests() =
                 let wrongValue = <@ "!" @>
                 Check.argumentException(fun () -> ExprShape.RebuildShapeCombination(shape, [wrongValue;lambda]))
         |   _ -> Assert.Fail()
+
+    [<Test>]
+    member x.GetConstructorFiltersOutStaticConstructor() =
+        ignore <@ System.Exception() @>
