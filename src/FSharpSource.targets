@@ -301,6 +301,7 @@
     </ItemGroup>
     <Delete Files="@(OldBuildVersionFiles)" TreatErrorsAsWarnings="true"/>
   </Target>
+<<<<<<< HEAD
 
   <UsingTask TaskName="FSharpEmbedResourceText"
              AssemblyFile="$(FSharpSourcesRoot)\..\Proto\net40\bin\FSharp.Build.dll"
@@ -387,3 +388,6 @@
 -->
 
   </Project>
+=======
+</Project>
+>>>>>>> Apply debian patches to make rebasing easier
