@@ -1,6 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information. -->
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<<<<<<< HEAD
+=======
+  <PropertyGroup>
+    <!-- Tail calls on, even in debug -->
+    <Tailcalls>true</Tailcalls>
+    <TargetFramework Condition="'$(TargetFramework)'==''">net40</TargetFramework>
+    <FsLexYaccPath>$(FSharpSourcesRoot)\..\lib\bootstrap\4.0</FsLexYaccPath>
+    <LkgPath>$(FSharpSourcesRoot)\..\lib\bootstrap\4.0</LkgPath>
+    <SolutionDir>$(FSharpSourcesRoot)\..\</SolutionDir>
+    <FsLexUnicode>true</FsLexUnicode>
+	<MSBuildVersionSuffix>v12.0</MSBuildVersionSuffix>
+	<MSBuildVersionFull>12.0.0.0</MSBuildVersionFull>
+    <OtherFlags>$(OtherFlags) --times</OtherFlags>
+    <NoWarn>$(NoWarn);69;65;54;61;75</NoWarn>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+>>>>>>> Point LkgPath at the bootstrap directory
 
   <PropertyGroup>
     <RepoRoot>$(MSBuildThisFileDirectory)..\</RepoRoot>
