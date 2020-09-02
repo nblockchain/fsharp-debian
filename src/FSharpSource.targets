@@ -275,6 +275,7 @@
     <WriteLinesToFile File="$(IntermediateOutputPath)source_link.json" Overwrite="true" Lines='{"documents": { "$(SourceLinkRoot)\\*" : "$(RemoteUri.Replace(".git", "").Replace("github.com", "raw.githubusercontent.com"))/$(GitHeadSha)/*" }}' />
   </Target>
 
+<<<<<<< HEAD
     <!-- If BuildVersionFilePath not specified then do nothing  -->
   <Target Name="CleanVersionFile" Condition ="'$(BuildVersionFilePath)' != '' ">
     <PropertyGroup>
@@ -292,6 +293,12 @@
         <PackageVersionMinor Condition="'$(PackageVersionMinor)' == ''" >1</PackageVersionMinor>
     </PropertyGroup>
 
+=======
+  <Import Project="..\lib\bootstrap\4.0\FSharp.SRGen.targets" />
+  <Target Name="ReorderCompileItems"
+      BeforeTargets="CoreCompile"
+      Condition="'$(GenerateTargetFrameworkAttribute)' == 'true' AND '$(AssemblyName)' == 'FSharp.Core'">  
+>>>>>>> Fix path to SRGen to point to bootstrap
     <ItemGroup>
       <CurrentVersionLines Include="%3C%3Fxml version=%221.0%22 encoding=%22utf-8%22%3F%3E" />
       <CurrentVersionLines Include="%3C!-- This is a generated file. $(VersionSeedSourceComment) Seed Date is $(VersionSeedDate). --%3E" />
