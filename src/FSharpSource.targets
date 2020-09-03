@@ -232,11 +232,61 @@
   <Import Project="$(FSharpSourcesRoot)\scripts\fssrgen.targets" Condition="'$(Configuration)' == 'Proto'" />
   <Import Project="Microbuild.Settings.targets" Condition="'$(UseMicroBuild)' == 'true'"/>
 
+<<<<<<< HEAD
 <!-- Not included in Linux/Mono build because target 'CopyFilesToOutputDirectory' doesn't exist and this fails the Mono build -->
 <!-- 
   <Target Name="dotnetrestore" BeforeTargets="Build" Condition=" '$(TargetDotnetProfile)' == 'coreclr' ">
    <Exec Command="$(MSBuildThisFileDirectory)..\.nuget\nuget.exe restore -PackagesDirectory $(PackagesDir) -Config $(MSBuildThisFileDirectory)..\NuGet.Config project.json" />
   </Target>
+=======
+  <!-- If compiling portable, then include Microsoft.Portable.Common.targets -->
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\v4.0\Microsoft.Portable.Common.targets"
+          Condition=" ('$(TargetFramework)'=='portable47' OR '$(TargetProfile)'=='netcore') AND 
+                      Exists('$(MSBuildExtensionsPath32)\Microsoft\Portable\v4.0\Microsoft.Portable.Common.targets')" />
+
+  <!-- If the Microsoft.Portable.Common.targets file does not exist when building the portable FSharp.Core, include the following ProperyGroup -->
+ <PropertyGroup Condition=" ('$(TargetFramework)'=='portable47'  OR '$(TargetProfile)'=='netcore') AND 
+                            !Exists('$(MSBuildExtensionsPath32)\Microsoft\Portable\v4.0\Microsoft.Portable.Common.targets')">
+   <AvailablePlatforms>Any CPU</AvailablePlatforms>
+   <TargetPlatformIdentifier>Portable</TargetPlatformIdentifier>
+   <TargetFrameworkIdentifier>.NETPortable</TargetFrameworkIdentifier>
+   <TargetFrameworkMonikerDisplayName>.NET Portable Subset</TargetFrameworkMonikerDisplayName>
+   <AddAdditionalExplicitAssemblyReferences>false</AddAdditionalExplicitAssemblyReferences>
+   <NoStdLib>true</NoStdLib>
+   <ImplicitlyExpandTargetFramework>false</ImplicitlyExpandTargetFramework>
+ </PropertyGroup>
+
+  <!-- Include the proto targets file unless building wioth the LKG -->
+  <Import Project="..\lib\proto\Microsoft.FSharp-proto.targets"
+          Condition="Exists('..\lib\proto\Microsoft.FSharp-proto.targets') AND '$(BuildWith)' == ''"/>
+
+  <!-- Include the bootstrap targets file when building the proto compiler using the bootstrap -->
+  <!-- Also include it if Proto targets file doesn't exist, e.g. when cleaning the build with /t:Clean -->
+  <Import Project="$(LkgPath)\Microsoft.FSharp.Targets"
+          Condition="(!Exists('..\lib\proto\Microsoft.FSharp-proto.targets')  OR '$(BuildWith)' == 'LKG') " />
+
+  <!-- If compiling portable, then Microsoft.Portable.Core.targets -->
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\Microsoft.Portable.Core.targets"
+          Condition=" ('$(TargetFramework)'=='portable47' OR '$(TargetProfile)'=='netcore') AND
+                      Exists('$(MSBuildExtensionsPath32)\Microsoft\Portable\Microsoft.Portable.Core.targets')" />
+          
+
+  <!-- Include the Silverlight targets file if needed -->
+  <Import Project="Silverlight\$(SilverlightVersion)\FSharpSource.Silverlight.Common.targets"
+          Condition="('$(TargetFramework)'=='sl3' OR 
+                      '$(TargetFramework)'=='sl4' OR 
+                      '$(TargetFramework)'=='sl5' OR 
+                      '$(TargetFramework)'=='sl5-compiler')"/>
+
+  <!-- Reference an existing FSI.EXE for use from within MSBuild -->
+  <PropertyGroup>
+    <FsSrGenToolPath>$(FSharpSourcesRoot)\..\lib\bootstrap\4.0</FsSrGenToolPath>
+    <FsLexToolPath>$(FsLexYaccPath)</FsLexToolPath>
+    <FsYaccToolPath>$(FsLexYaccPath)</FsYaccToolPath>
+    <FsLexToolExe>fslex.exe</FsLexToolExe>
+    <FsYaccToolExe>fsyacc.exe</FsYaccToolExe>
+  </PropertyGroup>
+>>>>>>> Add fssrgen.exe to bootstrap
 
   <Target Name="dotnetrestore" BeforeTargets="Build" Condition=" '$(DOTNET_PUBLISH)' == 'true' ">
     <SetEnvVar Name="NUGET_PACKAGES" Value="$(NUGET_PACKAGES)" />
