@@ -72,7 +72,6 @@
     </WriteCodeFragment>
 
     <ItemGroup Condition="'$(_UseWriteCodeFragmentHack)' == 'true'">
-      <_LinesToWrite Include="// &lt;auto-generated&gt;" />
       <_LinesToWrite Include="namespace FSharp" />
       <_LinesToWrite Include="open System" />
       <_LinesToWrite Include="open System.Reflection" />
@@ -87,9 +86,7 @@
     <WriteLinesToFile File="$(GeneratedFSharpAssemblyVersionFile)"
                       Lines="@(_LinesToWrite)"
                       Overwrite="true"
-                      Encoding="Unicode"
                       Condition="'$(_UseWriteCodeFragmentHack)' == 'true' and !Exists('$(GeneratedFSharpAssemblyVersionFile)')" />
-
   </Target>
 
 </Project>
