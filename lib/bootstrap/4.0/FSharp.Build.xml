@@ -5,7 +5,7 @@
 <member name="M:FSBuild.SR.toolpathUnknown">
 <summary>
  ToolPath is unknown; specify the path to fsc.exe as the ToolPath property.
- (Originally from C:\projects\fsharp\src\fsharp\FSharp.Build\FSBuild.txt:2)
+ (Originally from FSBuild.txt:2)
 </summary>
 </member>
 <member name="P:FSBuild.SR.SwallowResourceText(System.Boolean)">
@@ -23,12 +23,7 @@
  Call this method once to validate that all known resources are valid; throws if not
 </summary>
 </member>
-<member name="M:Internal.Utilities.FSharpEnvironment.tryFsharpiScript(System.String)">
-<summary>
- Try to find the F# compiler location by looking at the &quot;fsharpi&quot; script installed by F# packages
-</summary>
-</member>
-<member name="P:Internal.Utilities.FSharpEnvironment.DotNetBuildString">
+<member name="P:Internal.Utilities.FSharpEnvironment.FSharpBannerVersion">
 <summary>
  The F# version reported in the banner
 </summary>
