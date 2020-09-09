@@ -26,6 +26,11 @@
     </ItemGroup>
   </Target>
 
+  <PropertyGroup>
+    <!-- xbuild and older versions of msbuild don't have F# support for WriteCodeFragment -->
+    <_UseWriteCodeFragmentHack Condition="'$(OS)' == 'Unix' and '$(Language)' == 'F#'">true</_UseWriteCodeFragmentHack>
+  </PropertyGroup>
+
   <Target Name="GenerateFSharpInternalsVisibleToFile"
           Inputs="$(MSBuildProjectFile)"
           Outputs="$(GeneratedFSharpInternalsVisibleToFile)"
@@ -34,11 +39,29 @@
           BeforeTargets="CoreCompile">
     <WriteCodeFragment AssemblyAttributes="@(_InternalsVisibleToAttribute)"
                        Language="$(Language)"
-                       OutputFile="$(GeneratedFSharpInternalsVisibleToFile)">
+                       OutputFile="$(GeneratedFSharpInternalsVisibleToFile)"
+                       Condition="'$(_UseWriteCodeFragmentHack)' != 'true'">
       <Output TaskParameter="OutputFile" ItemName="CompileBefore" Condition="'$(Language)' == 'F#'" />
       <Output TaskParameter="OutputFile" ItemName="Compile" Condition="'$(Language)' != 'F#'" />
       <Output TaskParameter="OutputFile" ItemName="FileWrites" />
     </WriteCodeFragment>
+
+    <ItemGroup Condition="'$(_UseWriteCodeFragmentHack)' == 'true'">
+      <_LinesToWrite Include="namespace FSharp" />
+      <_LinesToWrite Include="open System" />
+      <_LinesToWrite Include="open System.Reflection" />
+      <_LinesToWrite Include="[&lt;assembly: %(_InternalsVisibleToAttribute.Identity)(&quot;%(_InternalsVisibleToAttribute._Parameter1)&quot;)&gt;]" />
+      <_LinesToWrite Include="do()" />
+
+      <Compile Include="$(GeneratedFSharpInternalsVisibleToFile)" Condition="'$(Language)' == 'F#'" />
+      <CompileBefore Include="$(GeneratedFSharpInternalsVisibleToFile)" Condition="'$(Language)' != 'F#'" />
+      <FileWrites Include="$(GeneratedFSharpInternalsVisibleToFile)" />
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(GeneratedFSharpInternalsVisibleToFile)"
+                      Lines="@(_LinesToWrite)"
+                      Overwrite="true"
+                      Condition="'$(_UseWriteCodeFragmentHack)' == 'true' and !Exists('$(GeneratedFSharpInternalsVisibleToFile)')" />
   </Target>
 
 </Project>
