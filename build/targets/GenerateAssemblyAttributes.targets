@@ -41,22 +41,27 @@
         <_Parameter1>&#169; Microsoft Corporation.  All Rights Reserved.</_Parameter1>
       </_AssemblyVersionAttributes>
       <_AssemblyVersionAttributes Include="System.Reflection.AssemblyDescriptionAttribute">
-        <_Parameter1>$(AssemblyName)</_Parameter1>
+        <!--<_Parameter1>$(AssemblyName)</_Parameter1>-->
+        <_Parameter1>TODO</_Parameter1>
       </_AssemblyVersionAttributes>
       <_AssemblyVersionAttributes Include="System.Reflection.AssemblyFileVersionAttribute">
-        <_Parameter1>$(Build_FileVersion)</_Parameter1>
+        <!--<_Parameter1>$(Build_FileVersion)</_Parameter1>-->
+        <_Parameter1>1.0.0</_Parameter1>
       </_AssemblyVersionAttributes>
       <_AssemblyVersionAttributes Include="System.Reflection.AssemblyInformationalVersionAttribute">
-        <_Parameter1>$(MicroBuildAssemblyVersion).  Commit Hash: $(GitHeadSha).</_Parameter1>
+        <!--<_Parameter1>$(MicroBuildAssemblyVersion).  Commit Hash: $(GitHeadSha).</_Parameter1>-->
+        <_Parameter1>TODO</_Parameter1>
       </_AssemblyVersionAttributes>
       <_AssemblyVersionAttributes Include="System.Reflection.AssemblyProductAttribute">
         <_Parameter1>Microsoft&#174; F#</_Parameter1>
       </_AssemblyVersionAttributes>
       <_AssemblyVersionAttributes Include="System.Reflection.AssemblyTitleAttribute">
-        <_Parameter1>$(AssemblyName)</_Parameter1>
+        <!--<_Parameter1>$(AssemblyName)</_Parameter1>-->
+        <_Parameter1>TODO</_Parameter1>
       </_AssemblyVersionAttributes>
       <_AssemblyVersionAttributes Include="System.Reflection.AssemblyVersionAttribute">
-        <_Parameter1>$(MicroBuildAssemblyVersion)</_Parameter1>
+        <!--<_Parameter1>$(MicroBuildAssemblyVersion)</_Parameter1>-->
+        <_Parameter1>1.0.0</_Parameter1>
       </_AssemblyVersionAttributes>
     </ItemGroup>
 
