@@ -33,7 +33,7 @@
       <_UseWriteCodeFragmentHack Condition="'$(OS)' == 'Unix' and '$(Language)' == 'F#'">true</_UseWriteCodeFragmentHack>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Condition="'$(_UseWriteCodeFragmentHack)' != 'true'">
       <_AssemblyVersionAttributes Include="System.Reflection.AssemblyCompanyAttribute">
         <_Parameter1>Microsoft Corporation</_Parameter1>
       </_AssemblyVersionAttributes>
@@ -41,27 +41,49 @@
         <_Parameter1>&#169; Microsoft Corporation.  All Rights Reserved.</_Parameter1>
       </_AssemblyVersionAttributes>
       <_AssemblyVersionAttributes Include="System.Reflection.AssemblyDescriptionAttribute">
-        <!--<_Parameter1>$(AssemblyName)</_Parameter1>-->
-        <_Parameter1>TODO</_Parameter1>
+        <_Parameter1>$(AssemblyName)</_Parameter1>
       </_AssemblyVersionAttributes>
       <_AssemblyVersionAttributes Include="System.Reflection.AssemblyFileVersionAttribute">
-        <!--<_Parameter1>$(Build_FileVersion)</_Parameter1>-->
-        <_Parameter1>1.0.0</_Parameter1>
+        <_Parameter1>$(Build_FileVersion)</_Parameter1>
       </_AssemblyVersionAttributes>
       <_AssemblyVersionAttributes Include="System.Reflection.AssemblyInformationalVersionAttribute">
-        <!--<_Parameter1>$(MicroBuildAssemblyVersion).  Commit Hash: $(GitHeadSha).</_Parameter1>-->
-        <_Parameter1>TODO</_Parameter1>
+        <_Parameter1>$(MicroBuildAssemblyVersion).  Commit Hash: $(GitHeadSha).</_Parameter1>
       </_AssemblyVersionAttributes>
       <_AssemblyVersionAttributes Include="System.Reflection.AssemblyProductAttribute">
         <_Parameter1>Microsoft&#174; F#</_Parameter1>
       </_AssemblyVersionAttributes>
       <_AssemblyVersionAttributes Include="System.Reflection.AssemblyTitleAttribute">
-        <!--<_Parameter1>$(AssemblyName)</_Parameter1>-->
-        <_Parameter1>TODO</_Parameter1>
+        <_Parameter1>$(AssemblyName)</_Parameter1>
       </_AssemblyVersionAttributes>
       <_AssemblyVersionAttributes Include="System.Reflection.AssemblyVersionAttribute">
-        <!--<_Parameter1>$(MicroBuildAssemblyVersion)</_Parameter1>-->
-        <_Parameter1>1.0.0</_Parameter1>
+        <_Parameter1>$(MicroBuildAssemblyVersion)</_Parameter1>
+      </_AssemblyVersionAttributes>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(_UseWriteCodeFragmentHack)' == 'true'">
+      <_AssemblyVersionAttributes Include="Microsoft Corporation">
+        <_Parameter1>System.Reflection.AssemblyCompanyAttribute</_Parameter1>
+      </_AssemblyVersionAttributes>
+      <_AssemblyVersionAttributes Include="&#169; Microsoft Corporation.  All Rights Reserved.">
+        <_Parameter1>System.Reflection.AssemblyCopyrightAttribute</_Parameter1>
+      </_AssemblyVersionAttributes>
+      <_AssemblyVersionAttributes Include="$(AssemblyName)">
+        <_Parameter1>System.Reflection.AssemblyDescriptionAttribute</_Parameter1>
+      </_AssemblyVersionAttributes>
+      <_AssemblyVersionAttributes Include="$(Build_FileVersion)">
+        <_Parameter1>System.Reflection.AssemblyFileVersionAttribute</_Parameter1>
+      </_AssemblyVersionAttributes>
+      <_AssemblyVersionAttributes Include="$(MicroBuildAssemblyVersion).  Commit Hash: $(GitHeadSha).">
+        <_Parameter1>System.Reflection.AssemblyInformationalVersionAttribute</_Parameter1>
+      </_AssemblyVersionAttributes>
+      <_AssemblyVersionAttributes Include="Microsoft&#174; F#">
+        <_Parameter1>System.Reflection.AssemblyProductAttribute</_Parameter1>
+      </_AssemblyVersionAttributes>
+      <_AssemblyVersionAttributes Include="$(AssemblyName)">
+        <_Parameter1>System.Reflection.AssemblyTitleAttribute</_Parameter1>
+      </_AssemblyVersionAttributes>
+      <_AssemblyVersionAttributes Include="$(MicroBuildAssemblyVersion)">
+        <_Parameter1>System.Reflection.AssemblyVersionAttribute</_Parameter1>
       </_AssemblyVersionAttributes>
     </ItemGroup>
 
@@ -80,7 +102,7 @@
       <_LinesToWrite Include="namespace FSharp" />
       <_LinesToWrite Include="open System" />
       <_LinesToWrite Include="open System.Reflection" />
-      <_LinesToWrite Include="[&lt;assembly: %(_AssemblyVersionAttributes.Identity)(&quot;%(_AssemblyVersionAttributes._Parameter1)&quot;)&gt;]" />
+      <_LinesToWrite Include="[&lt;assembly: %(_AssemblyVersionAttributes._Parameter1)(&quot;%(_AssemblyVersionAttributes.Identity)&quot;)&gt;]" />
       <_LinesToWrite Include="do()" />
 
       <Compile Include="$(GeneratedFSharpAssemblyVersionFile)" Condition="'$(Language)' != 'F#' or '$(AssemblyName)' == 'FSharp.Core'" />
