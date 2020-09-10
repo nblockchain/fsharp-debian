@@ -63,8 +63,8 @@
       <_LinesToWrite Include="[&lt;assembly: %(_InternalsVisibleToAttribute._Parameter1)(&quot;%(_InternalsVisibleToAttribute.Identity)&quot;)&gt;]" />
       <_LinesToWrite Include="do()" />
 
-      <Compile Include="$(GeneratedFSharpInternalsVisibleToFile)" Condition="'$(Language)' == 'F#'" />
-      <CompileBefore Include="$(GeneratedFSharpInternalsVisibleToFile)" Condition="'$(Language)' != 'F#'" />
+      <CompileBefore Include="$(GeneratedFSharpInternalsVisibleToFile)" Condition="'$(Language)' == 'F#'" />
+      <Compile Include="$(GeneratedFSharpInternalsVisibleToFile)" Condition="'$(Language)' != 'F#'" />
       <FileWrites Include="$(GeneratedFSharpInternalsVisibleToFile)" />
     </ItemGroup>
 
