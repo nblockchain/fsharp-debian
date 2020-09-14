@@ -27,6 +27,8 @@ DEB_VERSION = $(shell dpkg-parsechangelog -l$(DEBIAN_DIR)/changelog | grep ^Vers
 DEB_SOURCE_NAME = $(shell dpkg-parsechangelog -l$(DEBIAN_DIR)/changelog | grep ^Source | cut -d" " -f2)
 VERSION = $(shell echo $(DEB_VERSION) | cut -d"-" -f1 | sed 's/+dfsg.*//')
 
+override_dh_auto_configure:
+	dh_auto_configure -- --with-bootstrap=lib/bootstrap/4.0
 
 override_dh_fixperms:
 	dh_fixperms
@@ -43,6 +45,7 @@ override_dh_auto_build:
 	xbuild lib/bootstrap/src/FsSrGen/FsSrGen.fsproj
 	xbuild lib/bootstrap/src/FSharp.SRGen.Build.Tasks/FSharp.SRGen.Build.Tasks.fsproj
 	xbuild lib/bootstrap/src/FsLexYacc.Build.Tasks/FsLexYacc.Build.Tasks.fsproj
+	mkdir -p lib/release
 	sed -e 's#@DIR@/@TOOL@#/usr/lib/cli/fsharp/fslex.exe#' -e 's/--exename:$$(basename $$0) //' launcher.in > lib/release/fslex
 	sed -e 's#@DIR@/@TOOL@#/usr/lib/cli/fsharp/fsyacc.exe#' -e 's/--exename:$$(basename $$0) //' launcher.in > lib/release/fsyacc
 	sed -e 's#@DIR@/@TOOL@#/usr/lib/cli/fsharp/FsSrGen.exe#' -e 's/--exename:$$(basename $$0) //' launcher.in > lib/release/fssrgen

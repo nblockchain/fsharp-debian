@@ -43,12 +43,12 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.Build.Framework" />
-    <Reference Include="Microsoft.Build.Utilities.v4.0" />
+    <Reference Include="Microsoft.Build.Utilities.v12.0" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
   </ItemGroup>
       <PropertyGroup>
-        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
+    <FSharpTargetsPath>../../../../Release/net40/bin/Microsoft.FSharp.Targets</FSharpTargetsPath>
       </PropertyGroup>
   <Import Project="$(FSharpTargetsPath)" Condition="Exists('$(FSharpTargetsPath)')" />
 </Project>
